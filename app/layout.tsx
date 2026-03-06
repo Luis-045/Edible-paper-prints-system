@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Delifesti",
-  description: "Sistema de pedidos para impresion comestible",
+  description: "Sistema de pedidos para impresión comestible",
 };
 
 export default function RootLayout({

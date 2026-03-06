@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "../../../lib/supabase";
-import { getUserFromRequest } from "../../../lib/authServer";
+import { supabaseAdmin } from "@/lib/supabase";
+import { getUserFromRequest } from "@/lib/authServer";
 import { databaseOperationError, internalServerError } from "@/lib/apiErrors";
 
 export async function POST(req: Request) {

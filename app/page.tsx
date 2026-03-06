@@ -10,16 +10,16 @@ export default function HomePage() {
         </div>
         <div className="nav-actions">
           <Link className="button button-ghost" href="/login">
-            Iniciar sesion
+            Iniciar sesión
           </Link>
         </div>
       </nav>
 
       <section className="hero">
-        <span className="eyebrow">Plataforma de briefs comestibles</span>
-        <h1>Tu diseno listo para imprimir en minutos.</h1>
+        <span className="eyebrow">Plataforma de impresiones comestibles</span>
+        <h1>Tu diseño listo para imprimir en minutos.</h1>
         <p>
-          Delifesti simplifica el proceso de pedido: recibes briefs claros, archivos organizados y
+          Delifesti simplifica el proceso de pedido: recibes diseños claros, archivos organizados y
           seguimiento del avance en un solo lugar.
         </p>
 
