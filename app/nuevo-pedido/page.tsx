@@ -238,7 +238,13 @@ export default function NewOrderPage() {
               id="shape"
               className="select"
               value={shape}
-              onChange={(e) => setShape(e.target.value)}
+              onChange={(e) => {
+                const selectedShape = e.target.value;
+                setShape(selectedShape);
+                if (selectedShape === "circle") {
+                  setHeightCm("");
+                }
+              }}
             >
               <option value="circle">Circulo</option>
               <option value="rectangle">Rectangulo</option>
@@ -246,11 +252,11 @@ export default function NewOrderPage() {
             </select>
           </div>
 
-          <div className="two-cols">
+          {shape === "circle" ? (
             <div className="field">
-              <label htmlFor="width_cm">Diametro o ancho (cm)</label>
+              <label htmlFor="diameter_cm">Diametro (cm)</label>
               <input
-                id="width_cm"
+                id="diameter_cm"
                 className="input"
                 type="number"
                 step="0.1"
@@ -258,19 +264,33 @@ export default function NewOrderPage() {
                 onChange={(e) => setWidthCm(e.target.value)}
               />
             </div>
+          ) : (
+            <div className="two-cols">
+              <div className="field">
+                <label htmlFor="width_cm">Ancho (cm)</label>
+                <input
+                  id="width_cm"
+                  className="input"
+                  type="number"
+                  step="0.1"
+                  value={widthCm}
+                  onChange={(e) => setWidthCm(e.target.value)}
+                />
+              </div>
 
-            <div className="field">
-              <label htmlFor="height_cm">Alto (cm) si es rectangulo</label>
-              <input
-                id="height_cm"
-                className="input"
-                type="number"
-                step="0.1"
-                value={heightCm}
-                onChange={(e) => setHeightCm(e.target.value)}
-              />
+              <div className="field">
+                <label htmlFor="height_cm">Alto (cm)</label>
+                <input
+                  id="height_cm"
+                  className="input"
+                  type="number"
+                  step="0.1"
+                  value={heightCm}
+                  onChange={(e) => setHeightCm(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="field">
             <label htmlFor="description">Descripcion del pedido</label>

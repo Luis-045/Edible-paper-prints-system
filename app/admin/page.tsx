@@ -10,6 +10,7 @@ type OrderRow = {
   updated_at: string;
   status: string;
   contact_name: string;
+  contact_value: string;
   product_type: string;
   shape: string;
   width_cm: number | null;
@@ -27,6 +28,15 @@ type AdminOrdersResponse = {
     total: number;
     total_pages: number;
   };
+  error?: string;
+};
+
+type UpdateStatusResponse = {
+  order?: {
+    status: string;
+    updated_at: string;
+  };
+  error?: string;
 };
 
 const VIEW_OPTIONS: Array<{ key: AdminView; label: string }> = [
@@ -35,6 +45,16 @@ const VIEW_OPTIONS: Array<{ key: AdminView; label: string }> = [
   { key: "archived", label: "Archivados" },
   { key: "all", label: "Todos" },
 ];
+
+const STATUS_OPTIONS = [
+  "new",
+  "reviewing",
+  "waiting_client",
+  "in_progress",
+  "ready",
+  "completed",
+  "cancelled",
+] as const;
 
 function prettyStatus(status: string) {
   switch (status) {
@@ -71,6 +91,10 @@ export default function AdminPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  const [statusDraftByOrder, setStatusDraftByOrder] = useState<Record<string, string>>({});
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
   const titleByView = useMemo(() => {
     switch (view) {
@@ -131,7 +155,7 @@ export default function AdminPage() {
       const text = await res.text();
       const data = (() => {
         try {
-          return JSON.parse(text) as AdminOrdersResponse & { error?: string };
+          return JSON.parse(text) as AdminOrdersResponse;
         } catch {
           return null;
         }
@@ -145,11 +169,70 @@ export default function AdminPage() {
       }
 
       setOrders(data.orders || []);
+      setStatusDraftByOrder(
+        (data.orders || []).reduce<Record<string, string>>((acc, order) => {
+          acc[order.id] = order.status;
+          return acc;
+        }, {})
+      );
       setTotalPages(data.pagination?.total_pages ?? 1);
       setTotal(data.pagination?.total ?? 0);
       setLoading(false);
     })();
-  }, [token, view, page, query]);
+  }, [token, view, page, query, refreshTick]);
+
+  async function applyStatus(orderId: string) {
+    if (!token) return;
+
+    const draftStatus = statusDraftByOrder[orderId];
+    const currentOrder = orders.find((order) => order.id === orderId);
+
+    if (!currentOrder || !draftStatus || draftStatus === currentOrder.status) {
+      return;
+    }
+
+    setUpdatingOrderId(orderId);
+    setError("");
+
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/update`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: draftStatus }),
+      });
+
+      const text = await res.text();
+      const data = (() => {
+        try {
+          return JSON.parse(text) as UpdateStatusResponse;
+        } catch {
+          return null;
+        }
+      })();
+
+      if (!res.ok || !data?.order) {
+        throw new Error(data?.error || text || "No se pudo actualizar el estado");
+      }
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId
+            ? { ...order, status: data.order?.status || order.status, updated_at: data.order?.updated_at || order.updated_at }
+            : order
+        )
+      );
+
+      setRefreshTick((prev) => prev + 1);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "No se pudo actualizar el estado";
+      setError(message);
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  }
 
   if (!ready) {
     return (
@@ -214,7 +297,7 @@ export default function AdminPage() {
         >
           <input
             className="input"
-            placeholder="Buscar por cliente, contacto o ID"
+            placeholder="Buscar por cliente o telefono"
             value={queryInput}
             onChange={(event) => setQueryInput(event.target.value)}
           />
@@ -243,7 +326,7 @@ export default function AdminPage() {
         ) : (
           <div className="list-grid">
             {orders.map((order) => (
-              <Link key={order.id} className="list-item" href={`/admin/orders/${order.id}`}>
+              <article key={order.id} className="list-item">
                 <div className="item-top">
                   <h3 className="item-title">{order.contact_name}</h3>
                   <span className="muted">
@@ -256,12 +339,49 @@ export default function AdminPage() {
                   {order.shape === "rectangle" ? ` x ${order.height_cm ?? "?"}` : ""} cm * final: {order.has_final_image ? "si" : "no"}
                 </p>
 
+                <p className="muted">
+                  <strong>Telefono:</strong> {order.contact_value || "-"}
+                </p>
+
                 <div>
                   <span className="status-chip">{prettyStatus(order.status)}</span>
                 </div>
 
+                <div className="inline-actions">
+                  <select
+                    className="select"
+                    value={statusDraftByOrder[order.id] || order.status}
+                    onChange={(event) =>
+                      setStatusDraftByOrder((prev) => ({
+                        ...prev,
+                        [order.id]: event.target.value,
+                      }))
+                    }
+                    style={{ minWidth: 180 }}
+                  >
+                    {STATUS_OPTIONS.map((statusOption) => (
+                      <option key={statusOption} value={statusOption}>
+                        {prettyStatus(statusOption)}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => applyStatus(order.id)}
+                    disabled={updatingOrderId === order.id || (statusDraftByOrder[order.id] || order.status) === order.status}
+                  >
+                    {updatingOrderId === order.id ? "Guardando..." : "Guardar estado"}
+                  </button>
+
+                  <Link className="button button-ghost" href={`/admin/orders/${order.id}`}>
+                    Abrir detalle
+                  </Link>
+                </div>
+
                 <p className="id-text">{order.id}</p>
-              </Link>
+              </article>
             ))}
           </div>
         )}
