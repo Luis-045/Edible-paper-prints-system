@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -9,6 +10,19 @@ type FileRow = {
   created_at: string;
   file_type: "final" | "reference";
   original_name: string;
+};
+
+type OrderDetail = {
+  id: string;
+  status: string;
+  updated_at: string | null;
+  product_type: string;
+  shape: string;
+  width_cm: number | null;
+  height_cm: number | null;
+  description: string;
+  notes: string | null;
+  client_note: string | null;
 };
 
 function prettyStatus(status: string) {
@@ -37,7 +51,7 @@ export default function ClientOrderDetailPage() {
   const id = params?.id;
 
   const [ready, setReady] = useState(false);
-  const [order, setOrder] = useState<any>(null);
+  const [order, setOrder] = useState<OrderDetail | null>(null);
   const [files, setFiles] = useState<FileRow[]>([]);
   const [error, setError] = useState("");
 
@@ -56,6 +70,7 @@ export default function ClientOrderDetailPage() {
       setReady(true);
 
       const res = await fetch(`/api/my/orders/${id}`, {
+        cache: "no-store",
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -75,80 +90,95 @@ export default function ClientOrderDetailPage() {
         return;
       }
 
-      setOrder(data.order);
-      setFiles(data.files || []);
+      setOrder(data.order as OrderDetail);
+      setFiles((data.files || []) as FileRow[]);
     })();
   }, [id]);
 
   if (!ready) {
     return (
-      <main style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "Arial" }}>
-        <p>Verificando acceso...</p>
+      <main className="page">
+        <section className="panel">
+          <p className="helper">Verificando acceso...</p>
+        </section>
       </main>
     );
   }
 
   if (error) {
     return (
-      <main style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "Arial" }}>
-        <p style={{ color: "crimson" }}>{error}</p>
+      <main className="page">
+        <section className="panel">
+          <p className="notice notice-error">{error}</p>
+        </section>
       </main>
     );
   }
 
   if (!order) {
     return (
-      <main style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "Arial" }}>
-        <p>Cargando...</p>
+      <main className="page">
+        <section className="panel">
+          <p className="helper">Cargando...</p>
+        </section>
       </main>
     );
   }
 
-  const finals = files.filter((f) => f.file_type === "final");
-  const refs = files.filter((f) => f.file_type === "reference");
+  const finals = files.filter((file) => file.file_type === "final");
+  const refs = files.filter((file) => file.file_type === "reference");
 
   return (
-    <main style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "Arial" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <a href="/dashboard" style={{ textDecoration: "none" }}>
-          ← Volver
-        </a>
+    <main className="page">
+      <nav className="nav">
+        <div className="nav-actions">
+          <Link className="button button-ghost" href="/dashboard">
+            Volver
+          </Link>
+        </div>
 
         <button
+          className="button button-secondary"
           onClick={async () => {
             await supabase.auth.signOut();
             window.location.href = "/login";
           }}
-          style={{
-            padding: "8px 12px",
-            cursor: "pointer",
-            borderRadius: 6,
-            border: "1px solid #ccc",
-            background: "#fff",
-          }}
         >
-          Cerrar sesión
+          Cerrar sesion
         </button>
-      </div>
+      </nav>
 
-      <h1 style={{ marginTop: 10 }}>Detalle de mi pedido</h1>
+      <section className="panel stack">
+        <h1>Detalle de pedido</h1>
+        <div>
+          <span className="status-chip">{prettyStatus(order.status)}</span>
+        </div>
 
-      <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
-        <p><strong>Estado:</strong> {prettyStatus(order.status)}</p>
-        <p>
-          <strong>Última actualización:</strong>{" "}
-          {order.updated_at ? new Date(order.updated_at).toLocaleString() : "—"}
+        <div className="info-grid">
+          <p className="info-item">
+            <strong>Ultima actualizacion:</strong>{" "}
+            {order.updated_at ? new Date(order.updated_at).toLocaleString() : "-"}
+          </p>
+          <p className="info-item">
+            <strong>Tipo:</strong> {order.product_type}
+          </p>
+          <p className="info-item">
+            <strong>Forma:</strong> {order.shape}
+          </p>
+          <p className="info-item">
+            <strong>Tamano:</strong> {order.width_cm ?? "?"}
+            {order.shape === "rectangle" ? ` x ${order.height_cm ?? "?"}` : ""} cm
+          </p>
+        </div>
+
+        <p className="info-item">
+          <strong>Descripcion:</strong>
+          <br />
+          {order.description}
         </p>
-        <p><strong>Tipo:</strong> {order.product_type}</p>
-        <p><strong>Forma:</strong> {order.shape}</p>
-        <p>
-          <strong>Tamaño:</strong> {order.width_cm ?? "?"}
-          {order.shape === "rectangle" ? ` × ${order.height_cm ?? "?"}` : ""} cm
-        </p>
-        <p><strong>Descripción:</strong><br />{order.description}</p>
 
         {order.notes && (
-          <p>
+          <p className="info-item">
             <strong>Notas del brief:</strong>
             <br />
             {order.notes}
@@ -156,35 +186,47 @@ export default function ClientOrderDetailPage() {
         )}
 
         {order.client_note && (
-          <p>
+          <p className="info-item">
             <strong>Nota del administrador:</strong>
             <br />
             {order.client_note}
           </p>
         )}
 
-        <p style={{ fontSize: 12, opacity: 0.7 }}>
-          <strong>ID:</strong> {order.id}
-        </p>
-      </div>
+        <p className="id-text">{order.id}</p>
+      </section>
 
-      <h2 style={{ marginTop: 20 }}>Archivos finales</h2>
-      {finals.length === 0 ? <p>No hay.</p> : (
-        <ul>
-          {finals.map((f) => (
-            <li key={f.id}>{f.original_name}</li>
-          ))}
-        </ul>
-      )}
+      <section className="panel spacer-top">
+        <h2>Archivos finales</h2>
+        {finals.length === 0 ? (
+          <p className="helper spacer-top">No hay archivos finales.</p>
+        ) : (
+          <ul className="stack spacer-top">
+            {finals.map((file) => (
+              <li key={file.id} className="card">
+                <strong>{file.original_name}</strong>
+                <p className="muted">{new Date(file.created_at).toLocaleString()}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-      <h2 style={{ marginTop: 20 }}>Referencias</h2>
-      {refs.length === 0 ? <p>No hay.</p> : (
-        <ul>
-          {refs.map((f) => (
-            <li key={f.id}>{f.original_name}</li>
-          ))}
-        </ul>
-      )}
+      <section className="panel spacer-top">
+        <h2>Referencias</h2>
+        {refs.length === 0 ? (
+          <p className="helper spacer-top">No hay referencias.</p>
+        ) : (
+          <ul className="stack spacer-top">
+            {refs.map((file) => (
+              <li key={file.id} className="card">
+                <strong>{file.original_name}</strong>
+                <p className="muted">{new Date(file.created_at).toLocaleString()}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }

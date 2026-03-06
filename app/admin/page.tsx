@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getMyRole } from "@/lib/isAdminClient";
 
@@ -39,8 +40,6 @@ function prettyStatus(status: string) {
 
 export default function AdminPage() {
   const [ready, setReady] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
-
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [error, setError] = useState("");
 
@@ -60,10 +59,10 @@ export default function AdminPage() {
         return;
       }
 
-      setToken(token);
       setReady(true);
 
       const res = await fetch("/api/admin/orders", {
+        cache: "no-store",
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -81,78 +80,75 @@ export default function AdminPage() {
         return;
       }
 
-      setOrders(data.orders || []);
+      setOrders((data.orders || []) as OrderRow[]);
     })();
   }, []);
 
   if (!ready) {
     return (
-      <main style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "Arial" }}>
-        <h1>Admin — Pedidos</h1>
-        <p>Verificando acceso...</p>
+      <main className="page">
+        <section className="panel">
+          <h1>Admin | Pedidos</h1>
+          <p className="helper spacer-top">Verificando acceso...</p>
+        </section>
       </main>
     );
   }
 
   return (
-    <main style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "Arial" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1>Admin — Pedidos</h1>
+    <main className="page">
+      <nav className="nav">
+        <div className="brand">
+          <span className="brand-dot" />
+          <span>Delifesti Admin</span>
+        </div>
 
         <button
+          className="button button-secondary"
           onClick={async () => {
             const { supabase } = await import("@/lib/supabaseClient");
             await supabase.auth.signOut();
             window.location.href = "/login";
           }}
-          style={{
-            padding: "8px 12px",
-            cursor: "pointer",
-            borderRadius: 6,
-            border: "1px solid #ccc",
-            background: "#fff",
-          }}
         >
-          Cerrar sesión
+          Cerrar sesion
         </button>
-      </div>
+      </nav>
 
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      <section className="panel">
+        <h1>Pedidos recientes</h1>
+        <p className="helper spacer-top">Gestiona estado, notas internas y notas para cliente.</p>
 
-      <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
-        {orders.map((o) => (
-          <a
-            key={o.id}
-            href={`/admin/orders/${o.id}`}
-            style={{
-              padding: 12,
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              textDecoration: "none",
-              color: "inherit",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-              <strong>{o.contact_name}</strong>
-              <span style={{ opacity: 0.7 }}>
-                {new Date(o.updated_at || o.created_at).toLocaleString()}
-              </span>
-            </div>
+        {error && <p className="notice notice-error">{error}</p>}
 
-            <div style={{ marginTop: 6, opacity: 0.9 }}>
-              {o.product_type} • {o.shape} • {o.width_cm ?? "?"}
-              {o.shape === "rectangle" ? ` × ${o.height_cm ?? "?"}` : ""} cm • final:{" "}
-              {o.has_final_image ? "sí" : "no"}
-            </div>
+        {orders.length === 0 ? (
+          <p className="helper spacer-top">No hay pedidos por mostrar.</p>
+        ) : (
+          <div className="list-grid">
+            {orders.map((order) => (
+              <Link key={order.id} className="list-item" href={`/admin/orders/${order.id}`}>
+                <div className="item-top">
+                  <h3 className="item-title">{order.contact_name}</h3>
+                  <span className="muted">
+                    {new Date(order.updated_at || order.created_at).toLocaleString()}
+                  </span>
+                </div>
 
-            <div style={{ marginTop: 6, fontSize: 13 }}>
-              <strong>Estado:</strong> {prettyStatus(o.status)}
-            </div>
+                <p className="muted">
+                  {order.product_type} * {order.shape} * {order.width_cm ?? "?"}
+                  {order.shape === "rectangle" ? ` x ${order.height_cm ?? "?"}` : ""} cm * final: {order.has_final_image ? "si" : "no"}
+                </p>
 
-            <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>{o.id}</div>
-          </a>
-        ))}
-      </div>
+                <div>
+                  <span className="status-chip">{prettyStatus(order.status)}</span>
+                </div>
+
+                <p className="id-text">{order.id}</p>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </main>
   );
 }

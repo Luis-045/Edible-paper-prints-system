@@ -1,34 +1,58 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 
+type AuthMode = "login" | "signup";
+
+type ProfileRole = {
+  role: "admin" | "client";
+};
+
+function safeRedirectPath(raw: string | null) {
+  if (!raw) return null;
+  if (!raw.startsWith("/")) return null;
+  if (raw.startsWith("//")) return null;
+  return raw;
+}
+
 export default function LoginPage() {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const searchParams = useSearchParams();
+  const initialMode = searchParams.get("mode") === "signup" ? "signup" : "login";
+
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const nextPath = useMemo(() => safeRedirectPath(searchParams.get("next")), [searchParams]);
+
   async function redirectByRole(userId: string) {
-    // leer rol desde profiles
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", userId)
-      .single();
+      .single<ProfileRole>();
 
-    // si por alguna razón no existe profile, manda al home
     if (error || !profile?.role) {
-      window.location.href = "/";
+      window.location.href = "/dashboard";
       return;
     }
 
     if (profile.role === "admin") {
       window.location.href = "/admin";
-    } else {
-      window.location.href = "/";
+      return;
     }
+
+    if (nextPath) {
+      window.location.href = nextPath;
+      return;
+    }
+
+    window.location.href = "/dashboard";
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -38,98 +62,114 @@ export default function LoginPage() {
 
     try {
       if (mode === "signup") {
-        // REGISTRO
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
 
         const user = data.user;
         if (!user) throw new Error("No se pudo obtener el usuario creado.");
 
-        // crear perfil (si falla por duplicado, no pasa nada grave)
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .insert([
-            {
-              id: user.id,
-              email: user.email,
-              role: "client",
-            },
-          ]);
+        const { error: profileError } = await supabase.from("profiles").insert([
+          {
+            id: user.id,
+            email: user.email,
+            role: "client",
+          },
+        ]);
 
-        // Si ya existe profile (por ejemplo reintento), ignoramos error de duplicado
         if (profileError && !String(profileError.message).toLowerCase().includes("duplicate")) {
           throw profileError;
         }
 
-        setMsg("Cuenta creada. Ahora inicia sesión.");
+        setMsg("Cuenta creada. Ahora inicia sesion.");
         setMode("login");
         setPassword("");
         return;
       }
 
-      //LOGIN
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
       const userId = data.user?.id;
       if (!userId) throw new Error("No se pudo obtener el usuario.");
 
-      // ✅ redirigir según role
       await redirectByRole(userId);
-    } catch (err: any) {
-      setMsg(err.message || "Error");
+    } catch (error) {
+      const text = error instanceof Error ? error.message : "Error inesperado";
+      setMsg(text);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main style={{ maxWidth: 520, margin: "40px auto", padding: 16, fontFamily: "Arial" }}>
-      <h1>{mode === "login" ? "Iniciar sesión" : "Crear cuenta"}</h1>
+    <main className="page-narrow">
+      <nav className="nav">
+        <div className="brand">
+          <span className="brand-dot" />
+          <span>Delifesti</span>
+        </div>
+        <div className="nav-actions">
+          <Link className="button button-ghost" href="/">
+            Volver al inicio
+          </Link>
+        </div>
+      </nav>
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12, marginTop: 16 }}>
-        <label>
-          Email
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            type="email"
-            style={{ width: "100%", padding: 8 }}
-          />
-        </label>
+      <section className="panel">
+        <h1>{mode === "login" ? "Iniciar sesion" : "Crear cuenta"}</h1>
+        <p className="helper spacer-top">
+          Accede para gestionar pedidos y revisar el avance de tus archivos.
+        </p>
 
-        <label>
-          Contraseña
-          <input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            type="password"
-            style={{ width: "100%", padding: 8 }}
-          />
-        </label>
+        <form onSubmit={handleSubmit} className="form">
+          <div className="field">
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              className="input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              type="email"
+            />
+          </div>
 
-        <button type="submit" disabled={loading} style={{ padding: 10, cursor: "pointer" }}>
-          {loading ? "..." : mode === "login" ? "Entrar" : "Registrarme"}
-        </button>
-      </form>
+          <div className="field">
+            <label htmlFor="password">Contrasena</label>
+            <input
+              id="password"
+              className="input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              type="password"
+            />
+          </div>
 
-      {msg && <p style={{ marginTop: 12 }}>{msg}</p>}
+          <button type="submit" className="button button-primary" disabled={loading}>
+            {loading ? "Procesando..." : mode === "login" ? "Entrar" : "Registrarme"}
+          </button>
+        </form>
 
-      <button
-        type="button"
-        onClick={() => {
-          setMsg("");
-          setMode(mode === "login" ? "signup" : "login");
-        }}
-        style={{ marginTop: 16, padding: 10, cursor: "pointer" }}
-      >
-        {mode === "login" ? "No tengo cuenta" : "Ya tengo cuenta"}
-      </button>
+        {msg && (
+          <p className={`notice ${msg.toLowerCase().includes("creada") ? "notice-success" : "notice-error"}`}>
+            {msg}
+          </p>
+        )}
+
+        <div className="spacer-top">
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => {
+              setMsg("");
+              setMode(mode === "login" ? "signup" : "login");
+            }}
+          >
+            {mode === "login" ? "No tengo cuenta" : "Ya tengo cuenta"}
+          </button>
+        </div>
+      </section>
     </main>
   );
 }

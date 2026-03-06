@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -84,80 +85,79 @@ export default function DashboardPage() {
 
   if (!ready) {
     return (
-      <main style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "Arial" }}>
-        <h1>Mis pedidos</h1>
-        <p>Verificando acceso...</p>
+      <main className="page">
+        <section className="panel">
+          <h1>Mis pedidos</h1>
+          <p className="helper spacer-top">Verificando acceso...</p>
+        </section>
       </main>
     );
   }
 
   return (
-    <main style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "Arial" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1>Mis pedidos</h1>
-
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            window.location.href = "/login";
-          }}
-          style={{
-            padding: "8px 12px",
-            cursor: "pointer",
-            borderRadius: 6,
-            border: "1px solid #ccc",
-            background: "#fff",
-          }}
-        >
-          Cerrar sesion
-        </button>
-      </div>
-
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
-
-      {orders.length === 0 ? (
-        <p style={{ marginTop: 20 }}>Aun no tienes pedidos.</p>
-      ) : (
-        <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
-          {orders.map((o) => (
-            <a
-              key={o.id}
-              href={`/dashboard/orders/${o.id}`}
-              style={{
-                padding: 12,
-                border: "1px solid #ddd",
-                borderRadius: 8,
-                textDecoration: "none",
-                color: "inherit",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                <strong>{o.contact_name}</strong>
-                <span style={{ opacity: 0.7 }}>
-                  {new Date(o.updated_at || o.created_at).toLocaleString()}
-                </span>
-              </div>
-
-              <div style={{ marginTop: 6 }}>
-                {o.product_type} * {o.shape} * {o.width_cm ?? "?"}
-                {o.shape === "rectangle" ? ` x ${o.height_cm ?? "?"}` : ""} cm
-              </div>
-
-              <div style={{ marginTop: 6 }}>
-                <strong>Estado:</strong> {prettyStatus(o.status)}
-              </div>
-
-              {o.client_note && (
-                <div style={{ marginTop: 8, fontSize: 14, opacity: 0.9 }}>
-                  <strong>Nota:</strong> {o.client_note}
-                </div>
-              )}
-
-              <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>{o.id}</div>
-            </a>
-          ))}
+    <main className="page">
+      <nav className="nav">
+        <div className="brand">
+          <span className="brand-dot" />
+          <span>Delifesti</span>
         </div>
-      )}
+
+        <div className="nav-actions">
+          <Link className="button button-primary" href="/nuevo-pedido">
+            Nuevo pedido
+          </Link>
+          <button
+            className="button button-secondary"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              window.location.href = "/login";
+            }}
+          >
+            Cerrar sesion
+          </button>
+        </div>
+      </nav>
+
+      <section className="panel">
+        <h1>Mis pedidos</h1>
+        <p className="helper spacer-top">Consulta el estado y seguimiento de tus briefs.</p>
+
+        {error && <p className="notice notice-error">{error}</p>}
+
+        {orders.length === 0 ? (
+          <p className="helper spacer-top">Aun no tienes pedidos.</p>
+        ) : (
+          <div className="list-grid">
+            {orders.map((order) => (
+              <Link key={order.id} className="list-item" href={`/dashboard/orders/${order.id}`}>
+                <div className="item-top">
+                  <h3 className="item-title">{order.contact_name}</h3>
+                  <span className="muted">
+                    {new Date(order.updated_at || order.created_at).toLocaleString()}
+                  </span>
+                </div>
+
+                <p className="muted">
+                  {order.product_type} * {order.shape} * {order.width_cm ?? "?"}
+                  {order.shape === "rectangle" ? ` x ${order.height_cm ?? "?"}` : ""} cm
+                </p>
+
+                <div>
+                  <span className="status-chip">{prettyStatus(order.status)}</span>
+                </div>
+
+                {order.client_note && (
+                  <p className="muted">
+                    <strong>Nota:</strong> {order.client_note}
+                  </p>
+                )}
+
+                <p className="id-text">{order.id}</p>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </main>
   );
 }

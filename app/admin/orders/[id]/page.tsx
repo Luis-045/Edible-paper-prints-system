@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getMyRole } from "@/lib/isAdminClient";
@@ -12,6 +14,35 @@ type FileRow = {
   original_name: string;
 };
 
+type OrderDetail = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+  status: string;
+  admin_note: string | null;
+  client_note: string | null;
+  contact_name: string;
+  contact_channel: string;
+  contact_value: string;
+  has_final_image: boolean;
+  product_type: string;
+  shape: string;
+  width_cm: number | null;
+  height_cm: number | null;
+  description: string;
+  notes: string | null;
+};
+
+type OrderUpdateResponse = {
+  order: {
+    status: string;
+    admin_note: string | null;
+    client_note: string | null;
+    updated_at: string;
+  };
+};
+
 const STATUS_OPTIONS = [
   "new",
   "reviewing",
@@ -20,7 +51,7 @@ const STATUS_OPTIONS = [
   "ready",
   "completed",
   "cancelled",
-];
+] as const;
 
 function prettyStatus(status: string) {
   switch (status) {
@@ -50,7 +81,7 @@ export default function OrderDetailPage() {
   const [ready, setReady] = useState(false);
   const [token, setToken] = useState<string | null>(null);
 
-  const [order, setOrder] = useState<any>(null);
+  const [order, setOrder] = useState<OrderDetail | null>(null);
   const [files, setFiles] = useState<FileRow[]>([]);
   const [error, setError] = useState("");
 
@@ -84,6 +115,7 @@ export default function OrderDetailPage() {
       setReady(true);
 
       const res = await fetch(`/api/admin/orders/${id}`, {
+        cache: "no-store",
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -101,11 +133,11 @@ export default function OrderDetailPage() {
         return;
       }
 
-      setOrder(data.order);
-      setFiles(data.files || []);
-      setStatus(data.order?.status || "new");
-      setAdminNote(data.order?.admin_note || "");
-      setClientNote(data.order?.client_note || "");
+      setOrder(data.order as OrderDetail);
+      setFiles((data.files || []) as FileRow[]);
+      setStatus((data.order?.status as string) || "new");
+      setAdminNote((data.order?.admin_note as string) || "");
+      setClientNote((data.order?.client_note as string) || "");
     })();
   }, [id]);
 
@@ -138,19 +170,26 @@ export default function OrderDetailPage() {
         }
       })();
 
-      if (!res.ok) {
+      if (!res.ok || !data?.order) {
         throw new Error(data?.error || text || "No se pudo guardar");
       }
 
-      setOrder((prev: any) => ({
-        ...prev,
-        status: data.order.status,
-        admin_note: data.order.admin_note,
-        client_note: data.order.client_note,
-        updated_at: data.order.updated_at,
-      }));
-    } catch (err: any) {
-      setError(err.message || "Error guardando cambios");
+      const updateData = data as OrderUpdateResponse;
+
+      setOrder((prev) => {
+        if (!prev) return prev;
+
+        return {
+          ...prev,
+          status: updateData.order.status,
+          admin_note: updateData.order.admin_note,
+          client_note: updateData.order.client_note,
+          updated_at: updateData.order.updated_at,
+        };
+      });
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Error guardando cambios";
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -176,10 +215,12 @@ export default function OrderDetailPage() {
         }
       })();
 
-      if (!res.ok) throw new Error(data?.error || text || "No se pudo generar link");
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error || text || "No se pudo generar link");
+      }
 
-      setSignedUrls((prev) => ({ ...prev, [fileId]: data.url }));
-      return data.url as string;
+      setSignedUrls((prev) => ({ ...prev, [fileId]: String(data.url) }));
+      return String(data.url);
     } finally {
       setLoadingFileId(null);
     }
@@ -192,222 +233,238 @@ export default function OrderDetailPage() {
   async function onDownload(fileId: string, filename: string) {
     const url = await getSignedUrl(fileId);
 
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error("No se pudo descargar el archivo");
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("No se pudo descargar el archivo");
 
-    const blob = await resp.blob();
-
+    const blob = await response.blob();
     const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = filename || "archivo";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+
+    const anchor = document.createElement("a");
+    anchor.href = blobUrl;
+    anchor.download = filename || "archivo";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+
     URL.revokeObjectURL(blobUrl);
   }
 
   if (!ready) {
     return (
-      <main style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "Arial" }}>
-        <p>Verificando acceso...</p>
+      <main className="page">
+        <section className="panel">
+          <p className="helper">Verificando acceso...</p>
+        </section>
       </main>
     );
   }
 
   if (error && !order) {
     return (
-      <main style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "Arial" }}>
-        <p style={{ color: "crimson" }}>{error}</p>
+      <main className="page">
+        <section className="panel">
+          <p className="notice notice-error">{error}</p>
+        </section>
       </main>
     );
   }
 
   if (!order) {
     return (
-      <main style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "Arial" }}>
-        <p>Cargando...</p>
+      <main className="page">
+        <section className="panel">
+          <p className="helper">Cargando...</p>
+        </section>
       </main>
     );
   }
 
-  const finals = files.filter((f) => f.file_type === "final");
-  const refs = files.filter((f) => f.file_type === "reference");
+  const finalFiles = files.filter((file) => file.file_type === "final");
+  const referenceFiles = files.filter((file) => file.file_type === "reference");
 
-  function FileCard({ f }: { f: FileRow }) {
-    const url = signedUrls[f.id];
+  function FileCard({ file }: { file: FileRow }) {
+    const previewUrl = signedUrls[file.id];
 
     return (
-      <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 10 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+      <div className="file-card">
+        <div className="file-top">
           <div>
-            <strong>{f.original_name}</strong>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>
-              {new Date(f.created_at).toLocaleString()}
-            </div>
+            <strong>{file.original_name}</strong>
+            <p className="muted">{new Date(file.created_at).toLocaleString()}</p>
           </div>
 
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" onClick={() => onPreview(f.id)} disabled={loadingFileId === f.id}>
-              {loadingFileId === f.id ? "..." : "Ver"}
+          <div className="inline-actions">
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => onPreview(file.id)}
+              disabled={loadingFileId === file.id}
+            >
+              {loadingFileId === file.id ? "..." : "Ver"}
             </button>
 
             <button
               type="button"
-              onClick={() => onDownload(f.id, f.original_name)}
-              disabled={loadingFileId === f.id}
+              className="button button-ghost"
+              onClick={() => onDownload(file.id, file.original_name)}
+              disabled={loadingFileId === file.id}
             >
               Descargar
             </button>
           </div>
         </div>
 
-        {url && (
-          <div style={{ marginTop: 10 }}>
-            <img
-              src={url}
-              alt={f.original_name}
-              style={{ maxWidth: "100%", borderRadius: 6, border: "1px solid #eee" }}
-            />
-          </div>
+        {previewUrl && (
+          <Image
+            src={previewUrl}
+            alt={file.original_name}
+            width={1200}
+            height={800}
+            unoptimized
+            className="preview-image"
+          />
         )}
       </div>
     );
   }
 
   return (
-    <main style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "Arial" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <a href="/admin" style={{ textDecoration: "none" }}>
-          ← Volver
-        </a>
+    <main className="page">
+      <nav className="nav">
+        <Link className="button button-ghost" href="/admin">
+          Volver
+        </Link>
 
         <button
+          className="button button-secondary"
           onClick={async () => {
             const { supabase } = await import("@/lib/supabaseClient");
             await supabase.auth.signOut();
             window.location.href = "/login";
           }}
-          style={{
-            padding: "8px 12px",
-            cursor: "pointer",
-            borderRadius: 6,
-            border: "1px solid #ccc",
-            background: "#fff",
-          }}
         >
-          Cerrar sesión
+          Cerrar sesion
         </button>
-      </div>
+      </nav>
 
-      <h1 style={{ marginTop: 10 }}>Pedido</h1>
+      <section className="panel stack">
+        <h1>Pedido</h1>
+        {error && <p className="notice notice-error">{error}</p>}
 
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+        <div>
+          <span className="status-chip">{prettyStatus(order.status)}</span>
+        </div>
 
-      <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
-        <p>
-          <strong>Cliente:</strong> {order.contact_name} ({order.contact_channel}:{" "}
-          {order.contact_value})
-        </p>
-        <p>
-          <strong>Tipo:</strong> {order.product_type} • <strong>Forma:</strong> {order.shape}
-        </p>
-        <p>
-          <strong>Tamaño:</strong> {order.width_cm ?? "?"}
-          {order.shape === "rectangle" ? ` × ${order.height_cm ?? "?"}` : ""} cm
-        </p>
-        <p>
-          <strong>Imagen final:</strong> {order.has_final_image ? "sí" : "no"}
-        </p>
-        <p>
-          <strong>Estado actual:</strong> {prettyStatus(order.status)}
-        </p>
-        <p>
-          <strong>Última actualización:</strong>{" "}
-          {order.updated_at ? new Date(order.updated_at).toLocaleString() : "—"}
-        </p>
-        <p>
-          <strong>Descripción:</strong>
+        <div className="info-grid">
+          <p className="info-item">
+            <strong>Cliente:</strong> {order.contact_name}
+          </p>
+          <p className="info-item">
+            <strong>Contacto:</strong> {order.contact_channel} - {order.contact_value}
+          </p>
+          <p className="info-item">
+            <strong>Tipo:</strong> {order.product_type}
+          </p>
+          <p className="info-item">
+            <strong>Forma:</strong> {order.shape}
+          </p>
+          <p className="info-item">
+            <strong>Tamano:</strong> {order.width_cm ?? "?"}
+            {order.shape === "rectangle" ? ` x ${order.height_cm ?? "?"}` : ""} cm
+          </p>
+          <p className="info-item">
+            <strong>Imagen final:</strong> {order.has_final_image ? "si" : "no"}
+          </p>
+          <p className="info-item">
+            <strong>Ultima actualizacion:</strong> {new Date(order.updated_at).toLocaleString()}
+          </p>
+        </div>
+
+        <p className="info-item">
+          <strong>Descripcion:</strong>
           <br />
           {order.description}
         </p>
+
         {order.notes && (
-          <p>
+          <p className="info-item">
             <strong>Notas del brief:</strong>
             <br />
             {order.notes}
           </p>
         )}
-        <p style={{ fontSize: 12, opacity: 0.7 }}>
-          <strong>ID:</strong> {order.id}
-        </p>
-      </div>
 
-      <div style={{ marginTop: 20, padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
+        <p className="id-text">{order.id}</p>
+      </section>
+
+      <section className="panel spacer-top">
         <h2>Seguimiento del pedido</h2>
 
-        <label style={{ display: "grid", gap: 6, marginTop: 12 }}>
-          <span>Estado</span>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ padding: 8 }}>
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {prettyStatus(s)}
-              </option>
+        <div className="form">
+          <div className="field">
+            <label htmlFor="status">Estado</label>
+            <select id="status" className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {prettyStatus(option)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="admin-note">Nota interna (solo admin)</label>
+            <textarea
+              id="admin-note"
+              className="textarea"
+              rows={4}
+              value={adminNote}
+              onChange={(e) => setAdminNote(e.target.value)}
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="client-note">Nota visible para cliente</label>
+            <textarea
+              id="client-note"
+              className="textarea"
+              rows={4}
+              value={clientNote}
+              onChange={(e) => setClientNote(e.target.value)}
+            />
+          </div>
+
+          <button type="button" className="button button-primary" onClick={saveTracking} disabled={saving}>
+            {saving ? "Guardando..." : "Guardar cambios"}
+          </button>
+        </div>
+      </section>
+
+      <section className="panel spacer-top">
+        <h2>Archivos finales</h2>
+        {finalFiles.length === 0 ? (
+          <p className="helper spacer-top">No hay archivos finales.</p>
+        ) : (
+          <div className="file-grid spacer-top">
+            {finalFiles.map((file) => (
+              <FileCard key={file.id} file={file} />
             ))}
-          </select>
-        </label>
+          </div>
+        )}
+      </section>
 
-        <label style={{ display: "grid", gap: 6, marginTop: 12 }}>
-          <span>Nota interna (solo admin)</span>
-          <textarea
-            rows={4}
-            value={adminNote}
-            onChange={(e) => setAdminNote(e.target.value)}
-            style={{ width: "100%", padding: 8 }}
-          />
-        </label>
-
-        <label style={{ display: "grid", gap: 6, marginTop: 12 }}>
-          <span>Nota visible para cliente</span>
-          <textarea
-            rows={4}
-            value={clientNote}
-            onChange={(e) => setClientNote(e.target.value)}
-            style={{ width: "100%", padding: 8 }}
-          />
-        </label>
-
-        <button
-          type="button"
-          onClick={saveTracking}
-          disabled={saving}
-          style={{ marginTop: 12, padding: "10px 14px", cursor: "pointer" }}
-        >
-          {saving ? "Guardando..." : "Guardar cambios"}
-        </button>
-      </div>
-
-      <h2 style={{ marginTop: 20 }}>Archivos finales</h2>
-      {finals.length === 0 ? (
-        <p>No hay.</p>
-      ) : (
-        <div style={{ display: "grid", gap: 10 }}>
-          {finals.map((f) => (
-            <FileCard key={f.id} f={f} />
-          ))}
-        </div>
-      )}
-
-      <h2 style={{ marginTop: 20 }}>Referencias</h2>
-      {refs.length === 0 ? (
-        <p>No hay.</p>
-      ) : (
-        <div style={{ display: "grid", gap: 10 }}>
-          {refs.map((f) => (
-            <FileCard key={f.id} f={f} />
-          ))}
-        </div>
-      )}
+      <section className="panel spacer-top">
+        <h2>Referencias</h2>
+        {referenceFiles.length === 0 ? (
+          <p className="helper spacer-top">No hay referencias.</p>
+        ) : (
+          <div className="file-grid spacer-top">
+            {referenceFiles.map((file) => (
+              <FileCard key={file.id} file={file} />
+            ))}
+          </div>
+        )}
+      </section>
     </main>
   );
 }
