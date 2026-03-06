@@ -39,15 +39,15 @@ describe("POST /api/orders", () => {
   });
 
   it("returns 400 when required fields are missing", async () => {
-    mocks.getUserFromRequest.mockResolvedValueOnce({ user: { id: "user_1" }, error: null });
+    mocks.getUserFromRequest.mockResolvedValueOnce({
+      user: { id: "user_1", user_metadata: { full_name: "Luis", phone: "5512345678" } },
+      error: null,
+    });
 
     const req = new Request("http://localhost/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contact_name: "Luis",
-        contact_channel: "whatsapp",
-        contact_value: "5512345678",
         has_final_image: false,
         product_type: "pastel",
         shape: "circle",
@@ -61,8 +61,38 @@ describe("POST /api/orders", () => {
     expect(json.error).toContain("description");
   });
 
-  it("creates an order successfully", async () => {
-    mocks.getUserFromRequest.mockResolvedValueOnce({ user: { id: "user_1" }, error: null });
+  it("returns 400 when account metadata has no name or phone", async () => {
+    mocks.getUserFromRequest.mockResolvedValueOnce({
+      user: { id: "user_1", user_metadata: {} },
+      error: null,
+    });
+
+    const req = new Request("http://localhost/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        has_final_image: false,
+        product_type: "pastel",
+        shape: "circle",
+        description: "Pokemon",
+      }),
+    });
+
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toContain("nombre o telefono");
+  });
+
+  it("creates an order successfully using account metadata", async () => {
+    mocks.getUserFromRequest.mockResolvedValueOnce({
+      user: {
+        id: "user_1",
+        user_metadata: { full_name: "Luis Flores", phone: "5512345678" },
+      },
+      error: null,
+    });
 
     let insertedRows: Array<Record<string, unknown>> = [];
 
@@ -85,9 +115,6 @@ describe("POST /api/orders", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contact_name: "Luis",
-        contact_channel: "whatsapp",
-        contact_value: "5512345678",
         has_final_image: false,
         product_type: "pastel",
         shape: "circle",
@@ -102,5 +129,7 @@ describe("POST /api/orders", () => {
     expect(json.ok).toBe(true);
     expect(json.order.id).toBe("order_1");
     expect(insertedRows[0]?.user_id).toBe("user_1");
+    expect(insertedRows[0]?.contact_name).toBe("Luis Flores");
+    expect(insertedRows[0]?.contact_value).toBe("5512345678");
   });
 });

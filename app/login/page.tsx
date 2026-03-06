@@ -25,6 +25,8 @@ export default function LoginPage() {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -62,7 +64,19 @@ export default function LoginPage() {
 
     try {
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (!fullName.trim()) throw new Error("El nombre es obligatorio.");
+        if (!phone.trim()) throw new Error("El telefono es obligatorio.");
+
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName.trim(),
+              phone: phone.trim(),
+            },
+          },
+        });
         if (error) throw error;
 
         const user = data.user;
@@ -122,6 +136,35 @@ export default function LoginPage() {
         </p>
 
         <form onSubmit={handleSubmit} className="form">
+          {mode === "signup" && (
+            <>
+              <div className="field">
+                <label htmlFor="full_name">Nombre completo</label>
+                <input
+                  id="full_name"
+                  className="input"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                  type="text"
+                />
+              </div>
+
+              <div className="field">
+                <label htmlFor="phone">Telefono</label>
+                <input
+                  id="phone"
+                  className="input"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                  type="tel"
+                  placeholder="Ej. 5512345678"
+                />
+              </div>
+            </>
+          )}
+
           <div className="field">
             <label htmlFor="email">Email</label>
             <input
@@ -135,7 +178,7 @@ export default function LoginPage() {
           </div>
 
           <div className="field">
-            <label htmlFor="password">Contrasena</label>
+            <label htmlFor="password">Contraseña</label>
             <input
               id="password"
               className="input"

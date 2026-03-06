@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type OrderRow = {
@@ -17,6 +17,10 @@ type OrderRow = {
   has_final_image: boolean;
   client_note: string | null;
 };
+
+type ClientView = "active" | "history";
+
+const HISTORY_STATUSES = new Set(["completed", "cancelled"]);
 
 function prettyStatus(status: string) {
   switch (status) {
@@ -43,6 +47,7 @@ export default function DashboardPage() {
   const [ready, setReady] = useState(false);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [error, setError] = useState("");
+  const [view, setView] = useState<ClientView>("active");
 
   useEffect(() => {
     (async () => {
@@ -68,13 +73,13 @@ export default function DashboardPage() {
       const text = await res.text();
       const data = (() => {
         try {
-          return JSON.parse(text);
+          return JSON.parse(text) as { orders?: OrderRow[]; error?: string };
         } catch {
           return null;
         }
       })();
 
-      if (!res.ok) {
+      if (!res.ok || !data) {
         setError(data?.error || text || "Error cargando pedidos");
         return;
       }
@@ -82,6 +87,18 @@ export default function DashboardPage() {
       setOrders(data.orders || []);
     })();
   }, []);
+
+  const activeOrders = useMemo(
+    () => orders.filter((order) => !HISTORY_STATUSES.has(order.status)),
+    [orders]
+  );
+
+  const historyOrders = useMemo(
+    () => orders.filter((order) => HISTORY_STATUSES.has(order.status)),
+    [orders]
+  );
+
+  const visibleOrders = view === "active" ? activeOrders : historyOrders;
 
   if (!ready) {
     return (
@@ -118,17 +135,38 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      <section className="panel">
-        <h1>Mis pedidos</h1>
-        <p className="helper spacer-top">Consulta el estado y seguimiento de tus briefs.</p>
+      <section className="panel stack">
+        <div className="section-head">
+          <h1>Mis pedidos</h1>
+          <p className="helper">
+            Activos: {activeOrders.length} | Historial: {historyOrders.length}
+          </p>
+        </div>
+
+        <div className="tab-row">
+          <button
+            type="button"
+            className={`tab-button ${view === "active" ? "tab-button-active" : ""}`}
+            onClick={() => setView("active")}
+          >
+            Activos
+          </button>
+          <button
+            type="button"
+            className={`tab-button ${view === "history" ? "tab-button-active" : ""}`}
+            onClick={() => setView("history")}
+          >
+            Historial
+          </button>
+        </div>
 
         {error && <p className="notice notice-error">{error}</p>}
 
-        {orders.length === 0 ? (
-          <p className="helper spacer-top">Aun no tienes pedidos.</p>
+        {visibleOrders.length === 0 ? (
+          <p className="helper">No hay pedidos en esta vista.</p>
         ) : (
           <div className="list-grid">
-            {orders.map((order) => (
+            {visibleOrders.map((order) => (
               <Link key={order.id} className="list-item" href={`/dashboard/orders/${order.id}`}>
                 <div className="item-top">
                   <h3 className="item-title">{order.contact_name}</h3>

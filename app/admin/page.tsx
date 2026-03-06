@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getMyRole } from "@/lib/isAdminClient";
 
 type OrderRow = {
@@ -16,6 +16,25 @@ type OrderRow = {
   height_cm: number | null;
   has_final_image: boolean;
 };
+
+type AdminView = "pending" | "ready" | "archived" | "all";
+
+type AdminOrdersResponse = {
+  orders: OrderRow[];
+  pagination?: {
+    page: number;
+    page_size: number;
+    total: number;
+    total_pages: number;
+  };
+};
+
+const VIEW_OPTIONS: Array<{ key: AdminView; label: string }> = [
+  { key: "pending", label: "Pendientes" },
+  { key: "ready", label: "Listos" },
+  { key: "archived", label: "Archivados" },
+  { key: "all", label: "Todos" },
+];
 
 function prettyStatus(status: string) {
   switch (status) {
@@ -40,13 +59,36 @@ function prettyStatus(status: string) {
 
 export default function AdminPage() {
   const [ready, setReady] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const [view, setView] = useState<AdminView>("pending");
+  const [queryInput, setQueryInput] = useState("");
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  const titleByView = useMemo(() => {
+    switch (view) {
+      case "pending":
+        return "Pedidos pendientes";
+      case "ready":
+        return "Pedidos listos";
+      case "archived":
+        return "Pedidos archivados";
+      case "all":
+        return "Todos los pedidos";
+      default:
+        return "Pedidos";
+    }
+  }, [view]);
 
   useEffect(() => {
     (async () => {
-      setError("");
-
       const { token, role } = await getMyRole();
 
       if (!token) {
@@ -59,9 +101,29 @@ export default function AdminPage() {
         return;
       }
 
+      setToken(token);
       setReady(true);
+    })();
+  }, []);
 
-      const res = await fetch("/api/admin/orders", {
+  useEffect(() => {
+    if (!token) return;
+
+    (async () => {
+      setLoading(true);
+      setError("");
+
+      const searchParams = new URLSearchParams({
+        view,
+        page: String(page),
+        page_size: "25",
+      });
+
+      if (query.trim()) {
+        searchParams.set("q", query.trim());
+      }
+
+      const res = await fetch(`/api/admin/orders?${searchParams.toString()}`, {
         cache: "no-store",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -69,20 +131,25 @@ export default function AdminPage() {
       const text = await res.text();
       const data = (() => {
         try {
-          return JSON.parse(text);
+          return JSON.parse(text) as AdminOrdersResponse & { error?: string };
         } catch {
           return null;
         }
       })();
 
-      if (!res.ok) {
+      if (!res.ok || !data) {
         setError(data?.error || text || "Error cargando pedidos");
+        setOrders([]);
+        setLoading(false);
         return;
       }
 
-      setOrders((data.orders || []) as OrderRow[]);
+      setOrders(data.orders || []);
+      setTotalPages(data.pagination?.total_pages ?? 1);
+      setTotal(data.pagination?.total ?? 0);
+      setLoading(false);
     })();
-  }, []);
+  }, [token, view, page, query]);
 
   if (!ready) {
     return (
@@ -115,14 +182,64 @@ export default function AdminPage() {
         </button>
       </nav>
 
-      <section className="panel">
-        <h1>Pedidos recientes</h1>
-        <p className="helper spacer-top">Gestiona estado, notas internas y notas para cliente.</p>
+      <section className="panel stack">
+        <div className="section-head">
+          <h1>{titleByView}</h1>
+          <p className="helper">Total: {total}</p>
+        </div>
+
+        <div className="tab-row">
+          {VIEW_OPTIONS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              className={`tab-button ${view === option.key ? "tab-button-active" : ""}`}
+              onClick={() => {
+                setView(option.key);
+                setPage(1);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <form
+          className="filter-row"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setPage(1);
+            setQuery(queryInput);
+          }}
+        >
+          <input
+            className="input"
+            placeholder="Buscar por cliente, contacto o ID"
+            value={queryInput}
+            onChange={(event) => setQueryInput(event.target.value)}
+          />
+          <button className="button button-primary" type="submit">
+            Buscar
+          </button>
+          <button
+            className="button button-ghost"
+            type="button"
+            onClick={() => {
+              setQueryInput("");
+              setQuery("");
+              setPage(1);
+            }}
+          >
+            Limpiar
+          </button>
+        </form>
 
         {error && <p className="notice notice-error">{error}</p>}
 
-        {orders.length === 0 ? (
-          <p className="helper spacer-top">No hay pedidos por mostrar.</p>
+        {loading ? (
+          <p className="helper">Cargando pedidos...</p>
+        ) : orders.length === 0 ? (
+          <p className="helper">No hay pedidos para este filtro.</p>
         ) : (
           <div className="list-grid">
             {orders.map((order) => (
@@ -148,6 +265,28 @@ export default function AdminPage() {
             ))}
           </div>
         )}
+
+        <div className="pager-row">
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={page <= 1 || loading}
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+          >
+            Anterior
+          </button>
+          <p className="helper">
+            Pagina {page} de {totalPages}
+          </p>
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={page >= totalPages || loading}
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+          >
+            Siguiente
+          </button>
+        </div>
       </section>
     </main>
   );

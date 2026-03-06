@@ -11,15 +11,22 @@ type FormMessage = {
   text: string;
 } | null;
 
+type AccountContact = {
+  full_name: string;
+  phone: string;
+};
+
+function cleanText(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 export default function NewOrderPage() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<FormMessage>(null);
+  const [accountContact, setAccountContact] = useState<AccountContact | null>(null);
 
-  const [contactName, setContactName] = useState("");
-  const [contactChannel, setContactChannel] = useState("whatsapp");
-  const [contactValue, setContactValue] = useState("");
   const [hasFinalImage, setHasFinalImage] = useState("no");
   const [productType, setProductType] = useState("pastel");
   const [shape, setShape] = useState("circle");
@@ -34,11 +41,25 @@ export default function NewOrderPage() {
   useEffect(() => {
     (async () => {
       const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token ?? null;
+      const session = sessionData.session;
+      const accessToken = session?.access_token ?? null;
 
-      if (!accessToken) {
+      if (!accessToken || !session?.user) {
         window.location.href = "/login?next=/nuevo-pedido";
         return;
+      }
+
+      const metadata = session.user.user_metadata as { full_name?: string; phone?: string };
+      const fullName = cleanText(metadata?.full_name);
+      const phone = cleanText(metadata?.phone);
+
+      if (!fullName || !phone) {
+        setMessage({
+          type: "error",
+          text: "Tu cuenta no tiene nombre o telefono. Cierra sesion y registrate de nuevo con esos datos.",
+        });
+      } else {
+        setAccountContact({ full_name: fullName, phone });
       }
 
       setToken(accessToken);
@@ -55,13 +76,18 @@ export default function NewOrderPage() {
       return;
     }
 
+    if (!accountContact) {
+      setMessage({
+        type: "error",
+        text: "Falta nombre o telefono en tu cuenta. No se puede crear el pedido.",
+      });
+      return;
+    }
+
     setMessage(null);
     setLoading(true);
 
     const payload = {
-      contact_name: contactName,
-      contact_channel: contactChannel,
-      contact_value: contactValue,
       has_final_image: hasFinalImage === "yes",
       product_type: productType,
       shape,
@@ -118,9 +144,6 @@ export default function NewOrderPage() {
 
       setMessage({ type: "success", text: `Pedido creado con exito. ID: ${orderId}` });
 
-      setContactName("");
-      setContactChannel("whatsapp");
-      setContactValue("");
       setHasFinalImage("no");
       setProductType("pastel");
       setShape("circle");
@@ -166,45 +189,21 @@ export default function NewOrderPage() {
       <section className="panel">
         <h1>Nuevo pedido</h1>
         <p className="helper spacer-top">
-          Completa el brief y sube archivos. Si no tienes archivo final, puedes subir referencias.
+          Tus datos de contacto se toman de tu cuenta para que todos tus pedidos queden consistentes.
         </p>
 
+        {accountContact && (
+          <div className="card spacer-top">
+            <p>
+              <strong>Nombre:</strong> {accountContact.full_name}
+            </p>
+            <p>
+              <strong>Telefono:</strong> {accountContact.phone}
+            </p>
+          </div>
+        )}
+
         <form onSubmit={onSubmit} className="form">
-          <div className="field">
-            <label htmlFor="contact_name">Nombre</label>
-            <input
-              id="contact_name"
-              className="input"
-              required
-              value={contactName}
-              onChange={(e) => setContactName(e.target.value)}
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="contact_channel">Medio de contacto</label>
-            <select
-              id="contact_channel"
-              className="select"
-              value={contactChannel}
-              onChange={(e) => setContactChannel(e.target.value)}
-            >
-              <option value="whatsapp">WhatsApp</option>
-              <option value="email">Email</option>
-            </select>
-          </div>
-
-          <div className="field">
-            <label htmlFor="contact_value">WhatsApp o Email</label>
-            <input
-              id="contact_value"
-              className="input"
-              required
-              value={contactValue}
-              onChange={(e) => setContactValue(e.target.value)}
-            />
-          </div>
-
           <div className="field">
             <label htmlFor="has_final_image">Tienes imagen final lista?</label>
             <select
@@ -320,7 +319,7 @@ export default function NewOrderPage() {
             />
           </div>
 
-          <button type="submit" className="button button-primary" disabled={loading}>
+          <button type="submit" className="button button-primary" disabled={loading || !accountContact}>
             {loading ? "Enviando..." : "Enviar brief"}
           </button>
         </form>
