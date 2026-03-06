@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { databaseOperationError, internalServerError, isNotFoundError } from "@/lib/apiErrors";
 
 export async function GET(
   req: Request,
@@ -26,7 +27,10 @@ export async function GET(
       .single();
 
     if (dbErr) {
-      return NextResponse.json({ error: dbErr.message }, { status: 500 });
+      if (isNotFoundError(dbErr)) {
+        return NextResponse.json({ error: "Archivo no encontrado" }, { status: 404 });
+      }
+      return databaseOperationError();
     }
 
     if (!fileRow) {
@@ -37,18 +41,15 @@ export async function GET(
       .from("order-files")
       .createSignedUrl(fileRow.file_path, 60 * 5);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error || !data?.signedUrl) {
+      return databaseOperationError();
     }
 
     return NextResponse.json(
       { ok: true, url: data.signedUrl, name: fileRow.original_name },
       { status: 200 }
     );
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Error desconocido" },
-      { status: 500 }
-    );
+  } catch {
+    return internalServerError();
   }
 }

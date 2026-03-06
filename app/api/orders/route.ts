@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase";
 import { getUserFromRequest } from "../../../lib/authServer";
+import { databaseOperationError, internalServerError } from "@/lib/apiErrors";
 
 export async function POST(req: Request) {
   try {
-    // ✅ 1) Validar que venga usuario autenticado
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
-      return NextResponse.json({ error: authError }, { status: 401 });
+      return NextResponse.json({ error: authError || "No autenticado" }, { status: 401 });
     }
 
-    // ✅ 2) Leer body
     const body = await req.json();
 
     const required = [
@@ -29,12 +28,11 @@ export async function POST(req: Request) {
       }
     }
 
-    // ✅ 3) Insertar pedido ligado al usuario
     const { data, error } = await supabaseAdmin
       .from("orders")
       .insert([
         {
-          user_id: user.id, // 👈 IMPORTANTÍSIMO
+          user_id: user.id,
           contact_name: body.contact_name,
           contact_channel: body.contact_channel,
           contact_value: body.contact_value,
@@ -50,15 +48,12 @@ export async function POST(req: Request) {
       .select("id, created_at")
       .single();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error || !data) {
+      return databaseOperationError();
     }
 
     return NextResponse.json({ ok: true, order: data }, { status: 201 });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Error desconocido" },
-      { status: 500 }
-    );
+  } catch {
+    return internalServerError();
   }
 }

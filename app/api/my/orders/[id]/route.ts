@@ -1,8 +1,10 @@
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { getUserFromRequest } from "@/lib/authServer";
 import { databaseOperationError, internalServerError, isNotFoundError } from "@/lib/apiErrors";
 
 export async function GET(
@@ -10,9 +12,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const guard = await requireAdmin(req);
-    if (!guard.ok) {
-      return NextResponse.json({ error: guard.error }, { status: guard.status });
+    const { user, error: authError } = await getUserFromRequest(req);
+
+    if (!user) {
+      return NextResponse.json(
+        { error: authError || "No autenticado" },
+        { status: 401 }
+      );
     }
 
     const { id } = await params;
@@ -26,9 +32,7 @@ export async function GET(
         id,
         created_at,
         updated_at,
-        user_id,
         status,
-        admin_note,
         client_note,
         contact_name,
         contact_channel,
@@ -42,6 +46,7 @@ export async function GET(
         notes
       `)
       .eq("id", id)
+      .eq("user_id", user.id)
       .single();
 
     if (orderErr) {
@@ -57,7 +62,7 @@ export async function GET(
 
     const { data: files, error: filesErr } = await supabaseAdmin
       .from("order_files")
-      .select("id, created_at, file_type, file_path, original_name")
+      .select("id, created_at, file_type, original_name")
       .eq("order_id", id)
       .order("created_at", { ascending: true });
 

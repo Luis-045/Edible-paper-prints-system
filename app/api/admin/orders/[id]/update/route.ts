@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { databaseOperationError, internalServerError, isNotFoundError } from "@/lib/apiErrors";
 
 const ALLOWED_STATUS = [
   "new",
@@ -12,7 +13,18 @@ const ALLOWED_STATUS = [
   "ready",
   "completed",
   "cancelled",
-];
+] as const;
+
+type AllowedStatus = (typeof ALLOWED_STATUS)[number];
+type UpdatePayload = {
+  status?: AllowedStatus;
+  admin_note?: string | null;
+  client_note?: string | null;
+};
+
+function isAllowedStatus(value: string): value is AllowedStatus {
+  return (ALLOWED_STATUS as readonly string[]).includes(value);
+}
 
 export async function PATCH(
   req: Request,
@@ -29,13 +41,17 @@ export async function PATCH(
       return NextResponse.json({ error: "Falta id" }, { status: 400 });
     }
 
-    const body = await req.json();
+    const body = (await req.json()) as {
+      status?: string;
+      admin_note?: string | null;
+      client_note?: string | null;
+    };
 
-    const updates: Record<string, any> = {};
+    const updates: UpdatePayload = {};
 
     if (body.status !== undefined) {
-      if (!ALLOWED_STATUS.includes(body.status)) {
-        return NextResponse.json({ error: "Status inválido" }, { status: 400 });
+      if (!isAllowedStatus(body.status)) {
+        return NextResponse.json({ error: "Status invalido" }, { status: 400 });
       }
       updates.status = body.status;
     }
@@ -60,14 +76,18 @@ export async function PATCH(
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      if (isNotFoundError(error)) {
+        return NextResponse.json({ error: "Pedido no encontrado" }, { status: 404 });
+      }
+      return databaseOperationError();
+    }
+
+    if (!data) {
+      return NextResponse.json({ error: "Pedido no encontrado" }, { status: 404 });
     }
 
     return NextResponse.json({ ok: true, order: data }, { status: 200 });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Error desconocido" },
-      { status: 500 }
-    );
+  } catch {
+    return internalServerError();
   }
 }
