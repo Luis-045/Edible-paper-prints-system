@@ -1,4 +1,4 @@
-export const runtime = "nodejs";
+﻿export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -52,6 +52,11 @@ export async function GET(req: Request) {
         contact_name,
         contact_value,
         product_type,
+        paper_type,
+        base_price_mxn,
+        sheet_count,
+        extra_cost_mxn,
+        total_price_mxn,
         shape,
         width_cm,
         height_cm,

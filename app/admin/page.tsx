@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -12,6 +12,11 @@ type OrderRow = {
   contact_name: string;
   contact_value: string;
   product_type: string;
+  paper_type: string | null;
+  base_price_mxn: number | null;
+  sheet_count: number | null;
+  extra_cost_mxn: number | null;
+  total_price_mxn: number | null;
   shape: string;
   width_cm: number | null;
   height_cm: number | null;
@@ -55,6 +60,20 @@ const STATUS_OPTIONS = [
   "completed",
   "cancelled",
 ] as const;
+
+function paperLabel(value: string | null) {
+  if (value === "sugar") return "Azúcar";
+  return "Arroz";
+}
+
+function quoteLabel(order: OrderRow) {
+  if (!order.sheet_count || !order.total_price_mxn) {
+    return "Cotización pendiente";
+  }
+
+  const extra = order.extra_cost_mxn ?? 0;
+  return `${order.sheet_count} hoja(s) • Total $${order.total_price_mxn} MXN${extra > 0 ? ` (incluye extra $${extra})` : ""}`;
+}
 
 function prettyStatus(status: string) {
   switch (status) {
@@ -261,7 +280,7 @@ export default function AdminPage() {
             window.location.href = "/login";
           }}
         >
-          Cerrar sesion
+          Cerrar sesión
         </button>
       </nav>
 
@@ -297,7 +316,7 @@ export default function AdminPage() {
         >
           <input
             className="input"
-            placeholder="Buscar por cliente o telefono"
+            placeholder="Buscar por cliente o teléfono"
             value={queryInput}
             onChange={(event) => setQueryInput(event.target.value)}
           />
@@ -329,18 +348,24 @@ export default function AdminPage() {
               <article key={order.id} className="list-item">
                 <div className="item-top">
                   <h3 className="item-title">{order.contact_name}</h3>
-                  <span className="muted">
-                    {new Date(order.updated_at || order.created_at).toLocaleString()}
-                  </span>
+                  <span className="muted">{new Date(order.updated_at || order.created_at).toLocaleString()}</span>
                 </div>
 
                 <p className="muted">
-                  {order.product_type} * {order.shape} * {order.width_cm ?? "?"}
-                  {order.shape === "rectangle" ? ` x ${order.height_cm ?? "?"}` : ""} cm * final: {order.has_final_image ? "si" : "no"}
+                  {order.product_type} • Hoja: {paperLabel(order.paper_type)} (${order.base_price_mxn ?? "-"}/hoja)
                 </p>
 
                 <p className="muted">
-                  <strong>Telefono:</strong> {order.contact_value || "-"}
+                  {order.shape} • {order.width_cm ?? "?"}
+                  {order.shape === "rectangle" ? ` x ${order.height_cm ?? "?"}` : ""} cm • final: {order.has_final_image ? "sí" : "no"}
+                </p>
+
+                <p className="muted">
+                  <strong>Teléfono:</strong> {order.contact_value || "-"}
+                </p>
+
+                <p className="muted">
+                  <strong>Cotización:</strong> {quoteLabel(order)}
                 </p>
 
                 <div>
@@ -396,7 +421,7 @@ export default function AdminPage() {
             Anterior
           </button>
           <p className="helper">
-            Pagina {page} de {totalPages}
+            Página {page} de {totalPages}
           </p>
           <button
             type="button"

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getUserFromRequest: vi.fn(),
@@ -58,7 +58,7 @@ describe("POST /api/orders", () => {
     const json = await res.json();
 
     expect(res.status).toBe(400);
-    expect(json.error).toContain("description");
+    expect(json.error).toContain("paper_type");
   });
 
   it("returns 400 when account metadata has no name or phone", async () => {
@@ -73,6 +73,7 @@ describe("POST /api/orders", () => {
       body: JSON.stringify({
         has_final_image: false,
         product_type: "pastel",
+        paper_type: "rice",
         shape: "circle",
         description: "Pokemon",
       }),
@@ -117,6 +118,7 @@ describe("POST /api/orders", () => {
       body: JSON.stringify({
         has_final_image: false,
         product_type: "pastel",
+        paper_type: "sugar",
         shape: "circle",
         description: "Pokemon",
       }),
@@ -131,5 +133,7 @@ describe("POST /api/orders", () => {
     expect(insertedRows[0]?.user_id).toBe("user_1");
     expect(insertedRows[0]?.contact_name).toBe("Luis Flores");
     expect(insertedRows[0]?.contact_value).toBe("5512345678");
+    expect(insertedRows[0]?.paper_type).toBe("sugar");
+    expect(insertedRows[0]?.base_price_mxn).toBe(100);
   });
 });

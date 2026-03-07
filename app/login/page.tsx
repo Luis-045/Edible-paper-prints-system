@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -22,19 +22,19 @@ function mapAuthErrorMessage(message: string) {
   const lower = message.toLowerCase();
 
   if (lower.includes("email not confirmed") || lower.includes("email_not_confirmed")) {
-    return "Tu correo aun no esta verificado. Revisa tu bandeja y confirma tu cuenta.";
+    return "Tu correo aún no está verificado. Revisa tu bandeja y confirma tu cuenta.";
   }
 
   if (lower.includes("invalid login credentials")) {
-    return "Email o contrasena incorrectos.";
+    return "Email o contraseña incorrectos.";
   }
 
   if (lower.includes("user already registered")) {
-    return "Este correo ya esta registrado. Intenta iniciar sesion.";
+    return "Este correo ya está registrado. Intenta iniciar sesión.";
   }
 
   if (lower.includes("error occurred")) {
-    return "Ocurrio un problema al procesar la solicitud. Intenta de nuevo en unos segundos.";
+    return "Ocurrió un problema al procesar la solicitud. Intenta de nuevo en unos segundos.";
   }
 
   if (lower.includes("rate limit")) {
@@ -108,7 +108,7 @@ function LoginContent() {
 
   async function resendVerificationEmail() {
     if (!pendingVerificationEmail) {
-      setMsg("Primero registrate para reenviar la verificacion.");
+      setMsg("Primero regístrate para reenviar la verificación.");
       return;
     }
 
@@ -127,7 +127,7 @@ function LoginContent() {
         throw error;
       }
 
-      setMsg("Te reenviamos el correo de verificacion. Revisa bandeja de entrada y spam.");
+      setMsg("Te reenviamos el correo de verificación. Revisa bandeja de entrada y spam.");
     } catch (error) {
       const text = error instanceof Error ? mapAuthErrorMessage(error.message) : "No se pudo reenviar el correo";
       setMsg(text);
@@ -144,7 +144,7 @@ function LoginContent() {
     try {
       if (mode === "signup") {
         if (!fullName.trim()) throw new Error("El nombre es obligatorio.");
-        if (!phone.trim()) throw new Error("El telefono es obligatorio.");
+        if (!phone.trim()) throw new Error("El teléfono es obligatorio.");
 
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -165,7 +165,7 @@ function LoginContent() {
 
         setPendingVerificationEmail(email.trim());
         setShowVerificationGuide(true);
-        setMsg("Cuenta creada. Revisa tu correo y confirma tu cuenta antes de iniciar sesion.");
+        setMsg("Cuenta creada. Revisa tu correo y confirma tu cuenta antes de iniciar sesión.");
         setMode("login");
         setPassword("");
         return;
@@ -201,7 +201,7 @@ function LoginContent() {
       </nav>
 
       <section className="panel">
-        <h1>{mode === "login" ? "Iniciar sesion" : "Crear cuenta"}</h1>
+        <h1>{mode === "login" ? "Iniciar sesión" : "Crear cuenta"}</h1>
         <p className="helper spacer-top">Accede para gestionar pedidos y revisar el avance de tus archivos.</p>
 
         <form onSubmit={handleSubmit} className="form">
@@ -220,7 +220,7 @@ function LoginContent() {
               </div>
 
               <div className="field">
-                <label htmlFor="phone">Telefono</label>
+                <label htmlFor="phone">Teléfono</label>
                 <input
                   id="phone"
                   className="input"
@@ -247,7 +247,7 @@ function LoginContent() {
           </div>
 
           <div className="field">
-            <label htmlFor="password">Contrasena</label>
+            <label htmlFor="password">Contraseña</label>
             <input
               id="password"
               className="input"
@@ -275,7 +275,7 @@ function LoginContent() {
           <div className="notice spacer-top">
             <p>
               Siguiente paso: revisa tu correo <strong>{pendingVerificationEmail}</strong> y abre el enlace de
-              verificacion.
+              verificación.
             </p>
             <p className="helper spacer-top">
               Si no lo ves en 1-2 minutos, revisa tu carpeta de spam o correo no deseado.
@@ -287,7 +287,7 @@ function LoginContent() {
                 onClick={resendVerificationEmail}
                 disabled={resendLoading}
               >
-                {resendLoading ? "Reenviando..." : "Reenviar correo de verificacion"}
+                {resendLoading ? "Reenviando..." : "Reenviar correo de verificación"}
               </button>
             </div>
           </div>
@@ -318,3 +318,5 @@ export default function LoginPage() {
     </Suspense>
   );
 }
+
+

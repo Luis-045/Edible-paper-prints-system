@@ -1,4 +1,4 @@
-export const runtime = "nodejs";
+﻿export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -26,6 +26,11 @@ export async function GET(req: Request) {
         updated_at,
         status,
         product_type,
+        paper_type,
+        base_price_mxn,
+        sheet_count,
+        extra_cost_mxn,
+        total_price_mxn,
         shape,
         width_cm,
         height_cm,
