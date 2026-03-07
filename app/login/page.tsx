@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -44,7 +44,7 @@ function mapAuthErrorMessage(message: string) {
   return message;
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const searchParams = useSearchParams();
   const initialMode = searchParams.get("mode") === "signup" ? "signup" : "login";
 
@@ -247,7 +247,7 @@ export default function LoginPage() {
           </div>
 
           <div className="field">
-            <label htmlFor="password">Contraseña</label>
+            <label htmlFor="password">Contrasena</label>
             <input
               id="password"
               className="input"
@@ -308,5 +308,13 @@ export default function LoginPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<main className="page-narrow" />}>
+      <LoginContent />
+    </Suspense>
   );
 }
