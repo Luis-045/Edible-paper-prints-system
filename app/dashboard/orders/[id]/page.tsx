@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -17,6 +17,11 @@ type OrderDetail = {
   status: string;
   updated_at: string | null;
   product_type: string;
+  paper_type: string | null;
+  base_price_mxn: number | null;
+  sheet_count: number | null;
+  extra_cost_mxn: number | null;
+  total_price_mxn: number | null;
   shape: string;
   width_cm: number | null;
   height_cm: number | null;
@@ -24,6 +29,11 @@ type OrderDetail = {
   notes: string | null;
   client_note: string | null;
 };
+
+function paperLabel(value: string | null) {
+  if (value === "sugar") return "Azúcar";
+  return "Arroz";
+}
 
 function prettyStatus(status: string) {
   switch (status) {
@@ -144,7 +154,7 @@ export default function ClientOrderDetailPage() {
             window.location.href = "/login";
           }}
         >
-          Cerrar sesion
+          Cerrar sesión
         </button>
       </nav>
 
@@ -156,23 +166,34 @@ export default function ClientOrderDetailPage() {
 
         <div className="info-grid">
           <p className="info-item">
-            <strong>Ultima actualizacion:</strong>{" "}
-            {order.updated_at ? new Date(order.updated_at).toLocaleString() : "-"}
+            <strong>Última actualización:</strong> {order.updated_at ? new Date(order.updated_at).toLocaleString() : "-"}
           </p>
           <p className="info-item">
             <strong>Tipo:</strong> {order.product_type}
           </p>
           <p className="info-item">
+            <strong>Hoja:</strong> {paperLabel(order.paper_type)} (${order.base_price_mxn ?? "-"} por hoja)
+          </p>
+          <p className="info-item">
             <strong>Forma:</strong> {order.shape}
           </p>
           <p className="info-item">
-            <strong>Tamano:</strong> {order.width_cm ?? "?"}
+            <strong>Tamaño:</strong> {order.width_cm ?? "?"}
             {order.shape === "rectangle" ? ` x ${order.height_cm ?? "?"}` : ""} cm
           </p>
         </div>
 
+        <div className="card">
+          <p>
+            <strong>Cotización</strong>
+          </p>
+          <p>Hojas: {order.sheet_count ?? "pendiente"}</p>
+          <p>Extra: ${order.extra_cost_mxn ?? 0} MXN</p>
+          <p>Total: {order.total_price_mxn ? `$${order.total_price_mxn} MXN` : "Pendiente de cotizar"}</p>
+        </div>
+
         <p className="info-item">
-          <strong>Descripcion:</strong>
+          <strong>Descripción:</strong>
           <br />
           {order.description}
         </p>

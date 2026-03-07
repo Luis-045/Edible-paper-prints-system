@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -27,6 +27,11 @@ type OrderDetail = {
   contact_value: string;
   has_final_image: boolean;
   product_type: string;
+  paper_type: string | null;
+  base_price_mxn: number | null;
+  sheet_count: number | null;
+  extra_cost_mxn: number | null;
+  total_price_mxn: number | null;
   shape: string;
   width_cm: number | null;
   height_cm: number | null;
@@ -39,6 +44,9 @@ type OrderUpdateResponse = {
     status: string;
     admin_note: string | null;
     client_note: string | null;
+    sheet_count: number | null;
+    extra_cost_mxn: number | null;
+    total_price_mxn: number | null;
     updated_at: string;
   };
 };
@@ -74,6 +82,11 @@ function prettyStatus(status: string) {
   }
 }
 
+function paperLabel(value: string | null) {
+  if (value === "sugar") return "Azúcar";
+  return "Arroz";
+}
+
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
@@ -86,6 +99,8 @@ export default function OrderDetailPage() {
   const [error, setError] = useState("");
 
   const [status, setStatus] = useState("new");
+  const [sheetCount, setSheetCount] = useState("");
+  const [extraCost, setExtraCost] = useState("0");
   const [adminNote, setAdminNote] = useState("");
   const [clientNote, setClientNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -138,6 +153,8 @@ export default function OrderDetailPage() {
       setStatus((data.order?.status as string) || "new");
       setAdminNote((data.order?.admin_note as string) || "");
       setClientNote((data.order?.client_note as string) || "");
+      setSheetCount(data.order?.sheet_count ? String(data.order.sheet_count) : "");
+      setExtraCost(String(data.order?.extra_cost_mxn ?? 0));
     })();
   }, [id]);
 
@@ -156,6 +173,8 @@ export default function OrderDetailPage() {
         },
         body: JSON.stringify({
           status,
+          sheet_count: sheetCount ? Number(sheetCount) : null,
+          extra_cost_mxn: extraCost === "" ? 0 : Number(extraCost),
           admin_note: adminNote,
           client_note: clientNote,
         }),
@@ -184,6 +203,9 @@ export default function OrderDetailPage() {
           status: updateData.order.status,
           admin_note: updateData.order.admin_note,
           client_note: updateData.order.client_note,
+          sheet_count: updateData.order.sheet_count,
+          extra_cost_mxn: updateData.order.extra_cost_mxn,
+          total_price_mxn: updateData.order.total_price_mxn,
           updated_at: updateData.order.updated_at,
         };
       });
@@ -343,7 +365,7 @@ export default function OrderDetailPage() {
             window.location.href = "/login";
           }}
         >
-          Cerrar sesion
+          Cerrar sesión
         </button>
       </nav>
 
@@ -366,22 +388,25 @@ export default function OrderDetailPage() {
             <strong>Tipo:</strong> {order.product_type}
           </p>
           <p className="info-item">
+            <strong>Hoja:</strong> {paperLabel(order.paper_type)} (${order.base_price_mxn ?? "-"} por hoja)
+          </p>
+          <p className="info-item">
             <strong>Forma:</strong> {order.shape}
           </p>
           <p className="info-item">
-            <strong>Tamano:</strong> {order.width_cm ?? "?"}
+            <strong>Tamaño:</strong> {order.width_cm ?? "?"}
             {order.shape === "rectangle" ? ` x ${order.height_cm ?? "?"}` : ""} cm
           </p>
           <p className="info-item">
-            <strong>Imagen final:</strong> {order.has_final_image ? "si" : "no"}
+            <strong>Imagen final:</strong> {order.has_final_image ? "sí" : "no"}
           </p>
           <p className="info-item">
-            <strong>Ultima actualizacion:</strong> {new Date(order.updated_at).toLocaleString()}
+            <strong>Última actualización:</strong> {new Date(order.updated_at).toLocaleString()}
           </p>
         </div>
 
         <p className="info-item">
-          <strong>Descripcion:</strong>
+          <strong>Descripción:</strong>
           <br />
           {order.description}
         </p>
@@ -393,6 +418,15 @@ export default function OrderDetailPage() {
             {order.notes}
           </p>
         )}
+
+        <div className="card">
+          <p>
+            <strong>Cotización actual</strong>
+          </p>
+          <p>Hojas: {order.sheet_count ?? "pendiente"}</p>
+          <p>Extra: ${order.extra_cost_mxn ?? 0} MXN</p>
+          <p>Total: {order.total_price_mxn ? `$${order.total_price_mxn} MXN` : "Pendiente de cotizar"}</p>
+        </div>
 
         <p className="id-text">{order.id}</p>
       </section>
@@ -410,6 +444,32 @@ export default function OrderDetailPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="sheet-count">Cantidad de hojas</label>
+            <input
+              id="sheet-count"
+              className="input"
+              type="number"
+              min="1"
+              step="1"
+              value={sheetCount}
+              onChange={(e) => setSheetCount(e.target.value)}
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="extra-cost">Costo extra (MXN)</label>
+            <input
+              id="extra-cost"
+              className="input"
+              type="number"
+              min="0"
+              step="0.01"
+              value={extraCost}
+              onChange={(e) => setExtraCost(e.target.value)}
+            />
           </div>
 
           <div className="field">

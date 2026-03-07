@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -10,6 +10,11 @@ type OrderRow = {
   updated_at: string;
   status: string;
   product_type: string;
+  paper_type: string | null;
+  base_price_mxn: number | null;
+  sheet_count: number | null;
+  extra_cost_mxn: number | null;
+  total_price_mxn: number | null;
   shape: string;
   width_cm: number | null;
   height_cm: number | null;
@@ -22,12 +27,25 @@ type ClientView = "active" | "history";
 
 const HISTORY_STATUSES = new Set(["completed", "cancelled"]);
 
+function paperLabel(value: string | null) {
+  if (value === "sugar") return "Azúcar";
+  return "Arroz";
+}
+
+function quoteLabel(order: OrderRow) {
+  if (!order.sheet_count || !order.total_price_mxn) {
+    return "Cotización pendiente";
+  }
+
+  return `$${order.total_price_mxn} MXN (${order.sheet_count} hoja(s))`;
+}
+
 function prettyStatus(status: string) {
   switch (status) {
     case "new":
       return "Recibido";
     case "reviewing":
-      return "En revision";
+      return "En revisión";
     case "waiting_client":
       return "Falta tu respuesta";
     case "in_progress":
@@ -45,7 +63,7 @@ function prettyStatus(status: string) {
 
 function formatSize(order: OrderRow) {
   if (order.shape === "circle") {
-    return `${order.width_cm ?? "?"} cm de diametro`;
+    return `${order.width_cm ?? "?"} cm de diámetro`;
   }
 
   return `${order.width_cm ?? "?"} x ${order.height_cm ?? "?"} cm`;
@@ -142,7 +160,7 @@ export default function DashboardPage() {
               window.location.href = "/login";
             }}
           >
-            Cerrar sesion
+            Cerrar sesión
           </button>
         </div>
       </nav>
@@ -182,9 +200,7 @@ export default function DashboardPage() {
               <Link key={order.id} className="list-item" href={`/dashboard/orders/${order.id}`}>
                 <div className="item-top">
                   <h3 className="item-title">Pedido #{shortId(order.id)}</h3>
-                  <span className="muted">
-                    {new Date(order.updated_at || order.created_at).toLocaleString()}
-                  </span>
+                  <span className="muted">{new Date(order.updated_at || order.created_at).toLocaleString()}</span>
                 </div>
 
                 <div className="meta-grid">
@@ -192,13 +208,19 @@ export default function DashboardPage() {
                     <strong>Producto:</strong> {order.product_type}
                   </p>
                   <p className="meta-item">
+                    <strong>Hoja:</strong> {paperLabel(order.paper_type)} (${order.base_price_mxn ?? "-"}/hoja)
+                  </p>
+                  <p className="meta-item">
                     <strong>Forma:</strong> {order.shape}
                   </p>
                   <p className="meta-item">
-                    <strong>Tamano:</strong> {formatSize(order)}
+                    <strong>Tamaño:</strong> {formatSize(order)}
                   </p>
                   <p className="meta-item">
-                    <strong>Imagen final:</strong> {order.has_final_image ? "Si" : "No"}
+                    <strong>Imagen final:</strong> {order.has_final_image ? "Sí" : "No"}
+                  </p>
+                  <p className="meta-item">
+                    <strong>Cotización:</strong> {quoteLabel(order)}
                   </p>
                 </div>
 
