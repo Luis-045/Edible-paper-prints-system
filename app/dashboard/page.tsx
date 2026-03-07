@@ -9,12 +9,12 @@ type OrderRow = {
   created_at: string;
   updated_at: string;
   status: string;
-  contact_name: string;
   product_type: string;
   shape: string;
   width_cm: number | null;
   height_cm: number | null;
   has_final_image: boolean;
+  description: string;
   client_note: string | null;
 };
 
@@ -25,15 +25,15 @@ const HISTORY_STATUSES = new Set(["completed", "cancelled"]);
 function prettyStatus(status: string) {
   switch (status) {
     case "new":
-      return "Nuevo";
+      return "Recibido";
     case "reviewing":
-      return "Revisando";
+      return "En revision";
     case "waiting_client":
-      return "Esperando respuesta";
+      return "Falta tu respuesta";
     case "in_progress":
       return "En proceso";
     case "ready":
-      return "Listo";
+      return "Listo para entrega";
     case "completed":
       return "Completado";
     case "cancelled":
@@ -41,6 +41,18 @@ function prettyStatus(status: string) {
     default:
       return status;
   }
+}
+
+function formatSize(order: OrderRow) {
+  if (order.shape === "circle") {
+    return `${order.width_cm ?? "?"} cm de diametro`;
+  }
+
+  return `${order.width_cm ?? "?"} x ${order.height_cm ?? "?"} cm`;
+}
+
+function shortId(id: string) {
+  return id.slice(0, 8).toUpperCase();
 }
 
 export default function DashboardPage() {
@@ -169,28 +181,38 @@ export default function DashboardPage() {
             {visibleOrders.map((order) => (
               <Link key={order.id} className="list-item" href={`/dashboard/orders/${order.id}`}>
                 <div className="item-top">
-                  <h3 className="item-title">{order.contact_name}</h3>
+                  <h3 className="item-title">Pedido #{shortId(order.id)}</h3>
                   <span className="muted">
                     {new Date(order.updated_at || order.created_at).toLocaleString()}
                   </span>
                 </div>
 
-                <p className="muted">
-                  {order.product_type} * {order.shape} * {order.width_cm ?? "?"}
-                  {order.shape === "rectangle" ? ` x ${order.height_cm ?? "?"}` : ""} cm
-                </p>
+                <div className="meta-grid">
+                  <p className="meta-item">
+                    <strong>Producto:</strong> {order.product_type}
+                  </p>
+                  <p className="meta-item">
+                    <strong>Forma:</strong> {order.shape}
+                  </p>
+                  <p className="meta-item">
+                    <strong>Tamano:</strong> {formatSize(order)}
+                  </p>
+                  <p className="meta-item">
+                    <strong>Imagen final:</strong> {order.has_final_image ? "Si" : "No"}
+                  </p>
+                </div>
+
+                <p className="description-snippet">{order.description}</p>
 
                 <div>
                   <span className="status-chip">{prettyStatus(order.status)}</span>
                 </div>
 
                 {order.client_note && (
-                  <p className="muted">
-                    <strong>Nota:</strong> {order.client_note}
+                  <p className="note-box">
+                    <strong>Nota del equipo:</strong> {order.client_note}
                   </p>
                 )}
-
-                <p className="id-text">{order.id}</p>
               </Link>
             ))}
           </div>

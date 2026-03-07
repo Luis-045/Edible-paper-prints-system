@@ -25,12 +25,12 @@ export async function GET(req: Request) {
         created_at,
         updated_at,
         status,
-        contact_name,
         product_type,
         shape,
         width_cm,
         height_cm,
         has_final_image,
+        description,
         client_note
       `)
       .eq("user_id", user.id)

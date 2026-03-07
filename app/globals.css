@@ -304,6 +304,75 @@ a {
   gap: 14px;
 }
 
+.stepper {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.step-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.step-pill-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: #9f1365;
+}
+
+.wizard-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.upload-help-card {
+  border: 1px solid #ffd7ec;
+  background: #fff7fc;
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.upload-help-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #9f1365;
+  margin: 0 0 8px;
+}
+
+.upload-help-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.upload-count-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.upload-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--primary-soft);
+  color: #9f1365;
+}
+
 .section-head {
   display: flex;
   flex-wrap: wrap;
@@ -355,6 +424,34 @@ a {
 .info-item {
   color: var(--text);
   line-height: 1.45;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.meta-item {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.description-snippet {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.note-box {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff7fc;
+  border: 1px solid #ffd7ec;
+  color: #7b0f4d;
+  font-size: 13px;
 }
 
 .muted {
@@ -451,6 +548,10 @@ a {
   }
 
   .info-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .meta-grid {
     grid-template-columns: 1fr 1fr;
   }
 

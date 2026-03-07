@@ -18,6 +18,32 @@ function safeRedirectPath(raw: string | null) {
   return raw;
 }
 
+function mapAuthErrorMessage(message: string) {
+  const lower = message.toLowerCase();
+
+  if (lower.includes("email not confirmed") || lower.includes("email_not_confirmed")) {
+    return "Tu correo aun no esta verificado. Revisa tu bandeja y confirma tu cuenta.";
+  }
+
+  if (lower.includes("invalid login credentials")) {
+    return "Email o contrasena incorrectos.";
+  }
+
+  if (lower.includes("user already registered")) {
+    return "Este correo ya esta registrado. Intenta iniciar sesion.";
+  }
+
+  if (lower.includes("error occurred")) {
+    return "Ocurrio un problema al procesar la solicitud. Intenta de nuevo en unos segundos.";
+  }
+
+  if (lower.includes("rate limit")) {
+    return "Intentaste demasiadas veces. Espera unos minutos antes de reenviar otro correo.";
+  }
+
+  return message;
+}
+
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const initialMode = searchParams.get("mode") === "signup" ? "signup" : "login";
@@ -30,21 +56,44 @@ export default function LoginPage() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState("");
+  const [showVerificationGuide, setShowVerificationGuide] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+
   const nextPath = useMemo(() => safeRedirectPath(searchParams.get("next")), [searchParams]);
 
-  async function redirectByRole(userId: string) {
+  async function redirectByRole(userId: string, userEmail?: string) {
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", userId)
-      .single<ProfileRole>();
+      .maybeSingle<ProfileRole>();
 
-    if (error || !profile?.role) {
+    if (error) {
       window.location.href = "/dashboard";
       return;
     }
 
-    if (profile.role === "admin") {
+    let role = profile?.role;
+
+    if (!role && userEmail) {
+      const { error: createProfileError } = await supabase.from("profiles").insert([
+        {
+          id: userId,
+          email: userEmail,
+          role: "client",
+        },
+      ]);
+
+      if (createProfileError && !String(createProfileError.message).toLowerCase().includes("duplicate")) {
+        window.location.href = "/dashboard";
+        return;
+      }
+
+      role = "client";
+    }
+
+    if (role === "admin") {
       window.location.href = "/admin";
       return;
     }
@@ -55,6 +104,36 @@ export default function LoginPage() {
     }
 
     window.location.href = "/dashboard";
+  }
+
+  async function resendVerificationEmail() {
+    if (!pendingVerificationEmail) {
+      setMsg("Primero registrate para reenviar la verificacion.");
+      return;
+    }
+
+    setResendLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: pendingVerificationEmail,
+        options: {
+          emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/login` : undefined,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setMsg("Te reenviamos el correo de verificacion. Revisa bandeja de entrada y spam.");
+    } catch (error) {
+      const text = error instanceof Error ? mapAuthErrorMessage(error.message) : "No se pudo reenviar el correo";
+      setMsg(text);
+    } finally {
+      setResendLoading(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -75,26 +154,18 @@ export default function LoginPage() {
               full_name: fullName.trim(),
               phone: phone.trim(),
             },
+            emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/login` : undefined,
           },
         });
+
         if (error) throw error;
 
         const user = data.user;
         if (!user) throw new Error("No se pudo obtener el usuario creado.");
 
-        const { error: profileError } = await supabase.from("profiles").insert([
-          {
-            id: user.id,
-            email: user.email,
-            role: "client",
-          },
-        ]);
-
-        if (profileError && !String(profileError.message).toLowerCase().includes("duplicate")) {
-          throw profileError;
-        }
-
-        setMsg("Cuenta creada. Ahora inicia sesion.");
+        setPendingVerificationEmail(email.trim());
+        setShowVerificationGuide(true);
+        setMsg("Cuenta creada. Revisa tu correo y confirma tu cuenta antes de iniciar sesion.");
         setMode("login");
         setPassword("");
         return;
@@ -106,9 +177,9 @@ export default function LoginPage() {
       const userId = data.user?.id;
       if (!userId) throw new Error("No se pudo obtener el usuario.");
 
-      await redirectByRole(userId);
+      await redirectByRole(userId, data.user?.email ?? email);
     } catch (error) {
-      const text = error instanceof Error ? error.message : "Error inesperado";
+      const text = error instanceof Error ? mapAuthErrorMessage(error.message) : "Error inesperado";
       setMsg(text);
     } finally {
       setLoading(false);
@@ -131,9 +202,7 @@ export default function LoginPage() {
 
       <section className="panel">
         <h1>{mode === "login" ? "Iniciar sesion" : "Crear cuenta"}</h1>
-        <p className="helper spacer-top">
-          Accede para gestionar pedidos y revisar el avance de tus archivos.
-        </p>
+        <p className="helper spacer-top">Accede para gestionar pedidos y revisar el avance de tus archivos.</p>
 
         <form onSubmit={handleSubmit} className="form">
           {mode === "signup" && (
@@ -195,9 +264,33 @@ export default function LoginPage() {
         </form>
 
         {msg && (
-          <p className={`notice ${msg.toLowerCase().includes("creada") ? "notice-success" : "notice-error"}`}>
+          <p
+            className={`notice ${(msg.toLowerCase().includes("cuenta creada") || msg.toLowerCase().includes("te reenviamos")) ? "notice-success" : "notice-error"}`}
+          >
             {msg}
           </p>
+        )}
+
+        {showVerificationGuide && pendingVerificationEmail && (
+          <div className="notice spacer-top">
+            <p>
+              Siguiente paso: revisa tu correo <strong>{pendingVerificationEmail}</strong> y abre el enlace de
+              verificacion.
+            </p>
+            <p className="helper spacer-top">
+              Si no lo ves en 1-2 minutos, revisa tu carpeta de spam o correo no deseado.
+            </p>
+            <div className="spacer-top">
+              <button
+                type="button"
+                className="button button-ghost"
+                onClick={resendVerificationEmail}
+                disabled={resendLoading}
+              >
+                {resendLoading ? "Reenviando..." : "Reenviar correo de verificacion"}
+              </button>
+            </div>
+          </div>
         )}
 
         <div className="spacer-top">
@@ -206,6 +299,7 @@ export default function LoginPage() {
             className="button button-secondary"
             onClick={() => {
               setMsg("");
+              setShowVerificationGuide(false);
               setMode(mode === "login" ? "signup" : "login");
             }}
           >
