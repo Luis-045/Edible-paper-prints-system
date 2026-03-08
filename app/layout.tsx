@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Delifesti",
-  description: "Sistema de pedidos para impresión comestible",
+  description: "Sistema de pedidos para impresión transfer comestible",
 };
 
 export default function RootLayout({
