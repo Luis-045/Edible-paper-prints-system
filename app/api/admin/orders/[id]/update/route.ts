@@ -23,6 +23,8 @@ type UpdatePayload = {
   sheet_count?: number | null;
   extra_cost_mxn?: number;
   total_price_mxn?: number | null;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 };
 
 type ExistingOrder = {
@@ -61,7 +63,13 @@ export async function PATCH(
       client_note?: string | null;
       sheet_count?: number | null;
       extra_cost_mxn?: number;
+      mark_deleted?: boolean;
+      restore?: boolean;
     };
+
+    if (body.mark_deleted && body.restore) {
+      return NextResponse.json({ error: "No puedes eliminar y restaurar al mismo tiempo" }, { status: 400 });
+    }
 
     const updates: UpdatePayload = {};
     const quoteTouched = body.sheet_count !== undefined || body.extra_cost_mxn !== undefined;
@@ -93,6 +101,22 @@ export async function PATCH(
         return NextResponse.json({ error: "extra_cost_mxn debe ser un numero mayor o igual a 0" }, { status: 400 });
       }
       updates.extra_cost_mxn = body.extra_cost_mxn;
+    }
+
+    if (body.mark_deleted) {
+      updates.deleted_at = new Date().toISOString();
+      updates.deleted_by = guard.user.id;
+      if (!updates.status) {
+        updates.status = "cancelled";
+      }
+    }
+
+    if (body.restore) {
+      updates.deleted_at = null;
+      updates.deleted_by = null;
+      if (!updates.status) {
+        updates.status = "new";
+      }
     }
 
     if (quoteTouched) {
@@ -132,7 +156,7 @@ export async function PATCH(
       .from("orders")
       .update(updates)
       .eq("id", id)
-      .select("id, updated_at, status, admin_note, client_note, sheet_count, extra_cost_mxn, total_price_mxn")
+      .select("id, updated_at, status, admin_note, client_note, sheet_count, extra_cost_mxn, total_price_mxn, deleted_at, deleted_by")
       .single();
 
     if (error) {

@@ -18,6 +18,8 @@ type OrderDetail = {
   id: string;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
+  deleted_by: string | null;
   user_id: string;
   status: string;
   admin_note: string | null;
@@ -47,6 +49,8 @@ type OrderUpdateResponse = {
     sheet_count: number | null;
     extra_cost_mxn: number | null;
     total_price_mxn: number | null;
+    deleted_at: string | null;
+    deleted_by: string | null;
     updated_at: string;
   };
 };
@@ -104,6 +108,7 @@ export default function OrderDetailPage() {
   const [adminNote, setAdminNote] = useState("");
   const [clientNote, setClientNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [lifecycleLoading, setLifecycleLoading] = useState(false);
 
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
@@ -159,7 +164,7 @@ export default function OrderDetailPage() {
   }, [id]);
 
   async function saveTracking() {
-    if (!token || !id) return;
+    if (!token || !id || !order || order.deleted_at) return;
 
     setSaving(true);
     setError("");
@@ -206,6 +211,8 @@ export default function OrderDetailPage() {
           sheet_count: updateData.order.sheet_count,
           extra_cost_mxn: updateData.order.extra_cost_mxn,
           total_price_mxn: updateData.order.total_price_mxn,
+          deleted_at: updateData.order.deleted_at,
+          deleted_by: updateData.order.deleted_by,
           updated_at: updateData.order.updated_at,
         };
       });
@@ -214,6 +221,68 @@ export default function OrderDetailPage() {
       setError(message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function updateLifecycle(action: "delete" | "restore") {
+    if (!token || !id) return;
+
+    if (action === "delete") {
+      const ok = window.confirm("¿Deseas ocultar este pedido de las vistas normales?");
+      if (!ok) return;
+    }
+
+    setLifecycleLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch(`/api/admin/orders/${id}/update`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(action === "delete" ? { mark_deleted: true } : { restore: true }),
+      });
+
+      const text = await res.text();
+      const data = (() => {
+        try {
+          return JSON.parse(text);
+        } catch {
+          return null;
+        }
+      })();
+
+      if (!res.ok || !data?.order) {
+        throw new Error(data?.error || text || "No se pudo actualizar el ciclo de vida");
+      }
+
+      const updateData = data as OrderUpdateResponse;
+
+      setOrder((prev) => {
+        if (!prev) return prev;
+
+        return {
+          ...prev,
+          status: updateData.order.status,
+          admin_note: updateData.order.admin_note,
+          client_note: updateData.order.client_note,
+          sheet_count: updateData.order.sheet_count,
+          extra_cost_mxn: updateData.order.extra_cost_mxn,
+          total_price_mxn: updateData.order.total_price_mxn,
+          deleted_at: updateData.order.deleted_at,
+          deleted_by: updateData.order.deleted_by,
+          updated_at: updateData.order.updated_at,
+        };
+      });
+
+      setStatus(updateData.order.status);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "No se pudo actualizar";
+      setError(message);
+    } finally {
+      setLifecycleLoading(false);
     }
   }
 
@@ -301,6 +370,7 @@ export default function OrderDetailPage() {
     );
   }
 
+  const isDeleted = Boolean(order.deleted_at);
   const finalFiles = files.filter((file) => file.file_type === "final");
   const referenceFiles = files.filter((file) => file.file_type === "reference");
 
@@ -374,8 +444,14 @@ export default function OrderDetailPage() {
         {error && <p className="notice notice-error">{error}</p>}
 
         <div>
-          <span className="status-chip">{prettyStatus(order.status)}</span>
+          <span className="status-chip">{isDeleted ? "Eliminado" : prettyStatus(order.status)}</span>
         </div>
+
+        {isDeleted && (
+          <p className="notice notice-error">
+            Pedido eliminado el {order.deleted_at ? new Date(order.deleted_at).toLocaleString() : "-"}
+          </p>
+        )}
 
         <div className="info-grid">
           <p className="info-item">
@@ -428,16 +504,40 @@ export default function OrderDetailPage() {
           <p>Total: {order.total_price_mxn ? `$${order.total_price_mxn} MXN` : "Pendiente de cotizar"}</p>
         </div>
 
+        <div className="inline-actions">
+          {isDeleted ? (
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={() => updateLifecycle("restore")}
+              disabled={lifecycleLoading}
+            >
+              {lifecycleLoading ? "Restaurando..." : "Restaurar pedido"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="button button-ghost"
+              onClick={() => updateLifecycle("delete")}
+              disabled={lifecycleLoading}
+            >
+              {lifecycleLoading ? "Ocultando..." : "Ocultar pedido"}
+            </button>
+          )}
+        </div>
+
         <p className="id-text">{order.id}</p>
       </section>
 
       <section className="panel spacer-top">
         <h2>Seguimiento del pedido</h2>
 
+        {isDeleted && <p className="helper spacer-top">Restaura el pedido para editar seguimiento o cotización.</p>}
+
         <div className="form">
           <div className="field">
             <label htmlFor="status">Estado</label>
-            <select id="status" className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <select id="status" className="select" value={status} onChange={(e) => setStatus(e.target.value)} disabled={isDeleted}>
               {STATUS_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {prettyStatus(option)}
@@ -456,6 +556,7 @@ export default function OrderDetailPage() {
               step="1"
               value={sheetCount}
               onChange={(e) => setSheetCount(e.target.value)}
+              disabled={isDeleted}
             />
           </div>
 
@@ -469,6 +570,7 @@ export default function OrderDetailPage() {
               step="0.01"
               value={extraCost}
               onChange={(e) => setExtraCost(e.target.value)}
+              disabled={isDeleted}
             />
           </div>
 
@@ -480,6 +582,7 @@ export default function OrderDetailPage() {
               rows={4}
               value={adminNote}
               onChange={(e) => setAdminNote(e.target.value)}
+              disabled={isDeleted}
             />
           </div>
 
@@ -491,10 +594,11 @@ export default function OrderDetailPage() {
               rows={4}
               value={clientNote}
               onChange={(e) => setClientNote(e.target.value)}
+              disabled={isDeleted}
             />
           </div>
 
-          <button type="button" className="button button-primary" onClick={saveTracking} disabled={saving}>
+          <button type="button" className="button button-primary" onClick={saveTracking} disabled={saving || isDeleted}>
             {saving ? "Guardando..." : "Guardar cambios"}
           </button>
         </div>

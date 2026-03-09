@@ -26,6 +26,8 @@ export async function GET(
         id,
         created_at,
         updated_at,
+        deleted_at,
+        deleted_by,
         user_id,
         status,
         admin_note,

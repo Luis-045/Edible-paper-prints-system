@@ -1,4 +1,4 @@
-export const runtime = "nodejs";
+﻿export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -57,6 +57,7 @@ export async function POST(
       .from("orders")
       .select("id, user_id")
       .eq("id", orderId)
+      .is("deleted_at", null)
       .single();
 
     if (orderErr) {
@@ -157,3 +158,4 @@ export async function POST(
     return internalServerError();
   }
 }
+

@@ -41,7 +41,9 @@ describe("GET /api/my/orders", () => {
     mocks.from.mockReturnValueOnce({
       select: () => ({
         eq: () => ({
-          order: async () => ({ data: expectedOrders, error: null }),
+          is: () => ({
+            order: async () => ({ data: expectedOrders, error: null }),
+          }),
         }),
       }),
     });
@@ -61,7 +63,9 @@ describe("GET /api/my/orders", () => {
     mocks.from.mockReturnValueOnce({
       select: () => ({
         eq: () => ({
-          order: async () => ({ data: null, error: { message: "db raw error" } }),
+          is: () => ({
+            order: async () => ({ data: null, error: { message: "db raw error" } }),
+          }),
         }),
       }),
     });

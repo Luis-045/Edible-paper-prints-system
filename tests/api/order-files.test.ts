@@ -34,9 +34,11 @@ describe("POST /api/orders/:id/files", () => {
         return {
           select: () => ({
             eq: () => ({
-              single: async () => ({
-                data: { id: "order_1", user_id: "user_1" },
-                error: null,
+              is: () => ({
+                single: async () => ({
+                  data: { id: "order_1", user_id: "user_1" },
+                  error: null,
+                }),
               }),
             }),
           }),
@@ -73,9 +75,11 @@ describe("POST /api/orders/:id/files", () => {
         return {
           select: () => ({
             eq: () => ({
-              single: async () => ({
-                data: { id: "order_1", user_id: "user_1" },
-                error: null,
+              is: () => ({
+                single: async () => ({
+                  data: { id: "order_1", user_id: "user_1" },
+                  error: null,
+                }),
               }),
             }),
           }),
@@ -109,9 +113,11 @@ describe("POST /api/orders/:id/files", () => {
         return {
           select: () => ({
             eq: () => ({
-              single: async () => ({
-                data: { id: "order_1", user_id: "user_1" },
-                error: null,
+              is: () => ({
+                single: async () => ({
+                  data: { id: "order_1", user_id: "user_1" },
+                  error: null,
+                }),
               }),
             }),
           }),

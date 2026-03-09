@@ -193,6 +193,16 @@ a {
   transform: translateY(-1px);
 }
 
+.button-danger {
+  color: #fff;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 10px 24px rgba(220, 38, 38, 0.24);
+}
+
+.button-danger:hover {
+  transform: translateY(-1px);
+}
+
 .button-secondary {
   color: var(--text);
   background: var(--surface);

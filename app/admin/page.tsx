@@ -8,6 +8,7 @@ type OrderRow = {
   id: string;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
   status: string;
   contact_name: string;
   contact_value: string;
@@ -23,7 +24,7 @@ type OrderRow = {
   has_final_image: boolean;
 };
 
-type AdminView = "pending" | "ready" | "archived" | "all";
+type AdminView = "pending" | "ready" | "archived" | "deleted" | "all";
 
 type AdminOrdersResponse = {
   orders: OrderRow[];
@@ -48,6 +49,7 @@ const VIEW_OPTIONS: Array<{ key: AdminView; label: string }> = [
   { key: "pending", label: "Pendientes" },
   { key: "ready", label: "Listos" },
   { key: "archived", label: "Archivados" },
+  { key: "deleted", label: "Eliminados" },
   { key: "all", label: "Todos" },
 ];
 
@@ -123,6 +125,8 @@ export default function AdminPage() {
         return "Pedidos listos";
       case "archived":
         return "Pedidos archivados";
+      case "deleted":
+        return "Pedidos eliminados";
       case "all":
         return "Todos los pedidos";
       default:
@@ -206,7 +210,7 @@ export default function AdminPage() {
     const draftStatus = statusDraftByOrder[orderId];
     const currentOrder = orders.find((order) => order.id === orderId);
 
-    if (!currentOrder || !draftStatus || draftStatus === currentOrder.status) {
+    if (!currentOrder || currentOrder.deleted_at || !draftStatus || draftStatus === currentOrder.status) {
       return;
     }
 
@@ -344,70 +348,82 @@ export default function AdminPage() {
           <p className="helper">No hay pedidos para este filtro.</p>
         ) : (
           <div className="list-grid">
-            {orders.map((order) => (
-              <article key={order.id} className="list-item">
-                <div className="item-top">
-                  <h3 className="item-title">{order.contact_name}</h3>
-                  <span className="muted">{new Date(order.updated_at || order.created_at).toLocaleString()}</span>
-                </div>
+            {orders.map((order) => {
+              const isDeleted = Boolean(order.deleted_at);
+              const canApplyStatus = !isDeleted;
 
-                <p className="muted">
-                  {order.product_type} • Hoja: {paperLabel(order.paper_type)} (${order.base_price_mxn ?? "-"}/hoja)
-                </p>
+              return (
+                <article key={order.id} className="list-item">
+                  <div className="item-top">
+                    <h3 className="item-title">{order.contact_name}</h3>
+                    <span className="muted">{new Date(order.updated_at || order.created_at).toLocaleString()}</span>
+                  </div>
 
-                <p className="muted">
-                  {order.shape} • {order.width_cm ?? "?"}
-                  {order.shape === "rectangle" ? ` x ${order.height_cm ?? "?"}` : ""} cm • final: {order.has_final_image ? "sí" : "no"}
-                </p>
+                  <p className="muted">
+                    {order.product_type} • Hoja: {paperLabel(order.paper_type)} (${order.base_price_mxn ?? "-"}/hoja)
+                  </p>
 
-                <p className="muted">
-                  <strong>Teléfono:</strong> {order.contact_value || "-"}
-                </p>
+                  <p className="muted">
+                    {order.shape} • {order.width_cm ?? "?"}
+                    {order.shape === "rectangle" ? ` x ${order.height_cm ?? "?"}` : ""} cm • final: {order.has_final_image ? "sí" : "no"}
+                  </p>
 
-                <p className="muted">
-                  <strong>Cotización:</strong> {quoteLabel(order)}
-                </p>
+                  <p className="muted">
+                    <strong>Teléfono:</strong> {order.contact_value || "-"}
+                  </p>
 
-                <div>
-                  <span className="status-chip">{prettyStatus(order.status)}</span>
-                </div>
+                  <p className="muted">
+                    <strong>Cotización:</strong> {quoteLabel(order)}
+                  </p>
 
-                <div className="inline-actions">
-                  <select
-                    className="select"
-                    value={statusDraftByOrder[order.id] || order.status}
-                    onChange={(event) =>
-                      setStatusDraftByOrder((prev) => ({
-                        ...prev,
-                        [order.id]: event.target.value,
-                      }))
-                    }
-                    style={{ minWidth: 180 }}
-                  >
-                    {STATUS_OPTIONS.map((statusOption) => (
-                      <option key={statusOption} value={statusOption}>
-                        {prettyStatus(statusOption)}
-                      </option>
-                    ))}
-                  </select>
+                  {isDeleted && (
+                    <p className="notice notice-error">
+                      Pedido eliminado el {order.deleted_at ? new Date(order.deleted_at).toLocaleString() : "-"}
+                    </p>
+                  )}
 
-                  <button
-                    type="button"
-                    className="button button-secondary"
-                    onClick={() => applyStatus(order.id)}
-                    disabled={updatingOrderId === order.id || (statusDraftByOrder[order.id] || order.status) === order.status}
-                  >
-                    {updatingOrderId === order.id ? "Guardando..." : "Guardar estado"}
-                  </button>
+                  <div>
+                    <span className="status-chip">{isDeleted ? "Eliminado" : prettyStatus(order.status)}</span>
+                  </div>
 
-                  <Link className="button button-ghost" href={`/admin/orders/${order.id}`}>
-                    Abrir detalle
-                  </Link>
-                </div>
+                  <div className="inline-actions">
+                    <select
+                      className="select"
+                      value={statusDraftByOrder[order.id] || order.status}
+                      disabled={!canApplyStatus}
+                      onChange={(event) =>
+                        setStatusDraftByOrder((prev) => ({
+                          ...prev,
+                          [order.id]: event.target.value,
+                        }))
+                      }
+                      style={{ minWidth: 180 }}
+                    >
+                      {STATUS_OPTIONS.map((statusOption) => (
+                        <option key={statusOption} value={statusOption}>
+                          {prettyStatus(statusOption)}
+                        </option>
+                      ))}
+                    </select>
 
-                <p className="id-text">{order.id}</p>
-              </article>
-            ))}
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={() => applyStatus(order.id)}
+                      disabled={!canApplyStatus || updatingOrderId === order.id || (statusDraftByOrder[order.id] || order.status) === order.status}
+                    >
+                      {updatingOrderId === order.id ? "Guardando..." : "Guardar estado"}
+                    </button>
+
+                    <Link className="button button-ghost" href={`/admin/orders/${order.id}`}>
+                      Abrir detalle
+                    </Link>
+                  </div>
+
+                  <p className="id-text">{order.id}</p>
+                </article>
+              );
+            })}
           </div>
         )}
 

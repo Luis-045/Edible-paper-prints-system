@@ -12,6 +12,7 @@ const VIEW_STATUS: Record<string, string[] | null> = {
   pending: ["new", "reviewing", "waiting_client", "in_progress"],
   ready: ["ready"],
   archived: ["completed", "cancelled"],
+  deleted: null,
   all: null,
 };
 
@@ -36,6 +37,7 @@ export async function GET(req: Request) {
     const viewParam = (url.searchParams.get("view") || "pending").toLowerCase();
     const view = Object.prototype.hasOwnProperty.call(VIEW_STATUS, viewParam) ? viewParam : "pending";
     const statuses = VIEW_STATUS[view];
+    const isDeletedView = view === "deleted";
 
     const page = parsePositiveInt(url.searchParams.get("page"), 1);
     const pageSize = Math.min(parsePositiveInt(url.searchParams.get("page_size"), DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
@@ -48,6 +50,7 @@ export async function GET(req: Request) {
         id,
         created_at,
         updated_at,
+        deleted_at,
         status,
         contact_name,
         contact_value,
@@ -66,8 +69,13 @@ export async function GET(req: Request) {
       )
       .order("updated_at", { ascending: false });
 
-    if (statuses) {
-      query = query.in("status", statuses);
+    if (isDeletedView) {
+      query = query.not("deleted_at", "is", null);
+    } else {
+      query = query.is("deleted_at", null);
+      if (statuses) {
+        query = query.in("status", statuses);
+      }
     }
 
     if (q) {
