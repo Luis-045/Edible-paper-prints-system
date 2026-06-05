@@ -37,7 +37,7 @@ function quoteLabel(order: OrderRow) {
     return "Cotización pendiente";
   }
 
-  return `$${order.total_price_mxn} MXN (${order.sheet_count} hoja(s))`;
+  return `$${order.total_price_mxn} MXN`;
 }
 
 function prettyStatus(status: string) {
@@ -67,6 +67,26 @@ function formatSize(order: OrderRow) {
   }
 
   return `${order.width_cm ?? "?"} x ${order.height_cm ?? "?"} cm`;
+}
+
+function shapeLabel(value: string) {
+  if (value === "circle") return "Circular";
+  if (value === "rectangle") return "Rectangular";
+  if (value === "custom") return "Personalizado";
+  return value;
+}
+
+function productLabel(value: string) {
+  if (!value) return "Pedido personalizado";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatUpdatedDate(value: string) {
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
 }
 
 function shortId(id: string) {
@@ -197,37 +217,31 @@ export default function DashboardPage() {
         ) : (
           <div className="list-grid">
             {visibleOrders.map((order) => (
-              <Link key={order.id} className="list-item" href={`/dashboard/orders/${order.id}`}>
-                <div className="item-top">
-                  <h3 className="item-title">Pedido #{shortId(order.id)}</h3>
-                  <span className="muted">{new Date(order.updated_at || order.created_at).toLocaleString()}</span>
-                </div>
-
-                <div className="meta-grid">
-                  <p className="meta-item">
-                    <strong>Producto:</strong> {order.product_type}
-                  </p>
-                  <p className="meta-item">
-                    <strong>Hoja:</strong> {paperLabel(order.paper_type)} (${order.base_price_mxn ?? "-"}/hoja)
-                  </p>
-                  <p className="meta-item">
-                    <strong>Forma:</strong> {order.shape}
-                  </p>
-                  <p className="meta-item">
-                    <strong>Tamaño:</strong> {formatSize(order)}
-                  </p>
-                  <p className="meta-item">
-                    <strong>Imagen final:</strong> {order.has_final_image ? "Sí" : "No"}
-                  </p>
-                  <p className="meta-item">
-                    <strong>Cotización:</strong> {quoteLabel(order)}
-                  </p>
-                </div>
-
-                <p className="description-snippet">{order.description}</p>
-
-                <div>
+              <Link key={order.id} className="list-item client-order-card" href={`/dashboard/orders/${order.id}`}>
+                <div className="client-order-top">
                   <span className="status-chip">{prettyStatus(order.status)}</span>
+                  <span className="client-order-date">{formatUpdatedDate(order.updated_at || order.created_at)}</span>
+                </div>
+
+                <div className="client-order-main">
+                  <div>
+                    <h3 className="client-order-title">{productLabel(order.product_type)} personalizado</h3>
+                    <p className="client-order-summary">
+                      Hoja de {paperLabel(order.paper_type).toLowerCase()} · {shapeLabel(order.shape)} ·{" "}
+                      {formatSize(order)}
+                    </p>
+                    {order.description && <p className="client-order-description">{order.description}</p>}
+                  </div>
+
+                  <div className="client-order-quote">
+                    <span>Cotización</span>
+                    <strong>{quoteLabel(order)}</strong>
+                  </div>
+                </div>
+
+                <div className="client-order-footer">
+                  <span>Pedido #{shortId(order.id)}</span>
+                  <strong>Ver pedido</strong>
                 </div>
 
                 {order.client_note && (

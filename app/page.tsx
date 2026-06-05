@@ -1,5 +1,6 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import FloatingContact from "@/components/floating-contact";
+import HeroCarousel from "@/components/hero-carousel";
 
 const INSTAGRAM_URL = "https://www.instagram.com/delifesti/";
 const BUSINESS_WHATSAPP = (process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP || "").replace(/\D/g, "");
@@ -9,102 +10,114 @@ const WHATSAPP_URL = BUSINESS_WHATSAPP
     )}`
   : "";
 
+const products = [
+  {
+    title: "Hoja de azúcar",
+    price: "$99 MXN",
+    imageSrc: "/hoja-azucar.jpg",
+    accent: "home-product-card-pink",
+    description: "Acabado premium para fotos, personajes, logos finos y diseños con color intenso.",
+  },
+  {
+    title: "Hoja de arroz",
+    price: "$50 MXN",
+    imageSrc: "/hoja-arroz.jpg",
+    accent: "home-product-card-blue",
+    description: "Una opción práctica para pedidos de volumen, etiquetas comestibles y diseños sencillos.",
+  },
+];
+
+const heroImages = [
+  { src: "/hero-1.jpeg", alt: "Impresión comestible personalizada con osito y globos" },
+  { src: "/hero-2.jpeg", alt: "Impresión comestible de cumpleaños con dinosaurio" },
+  { src: "/hero-3.jpeg", alt: "Impresión comestible de abejitas para repostería" },
+];
+
+const steps = [
+  ["1. Envías tu idea", "Sube referencias, tamaño, forma y tipo de hoja."],
+  ["2. Revisamos tu pedido", "Validamos diseño, calidad y acomodo de impresión."],
+  ["3. Recibes cotización", "Ves el total y seguimiento desde tu dashboard."],
+];
+
 export default function HomePage() {
   return (
-    <main className="page">
-      <nav className="nav">
-        <div className="brand">
-          <span className="brand-dot" />
-          <span>Delifesti</span>
-        </div>
+    <main className="home-page">
+      <nav className="home-nav" aria-label="Principal">
+        <a className="home-brand" href="#inicio" aria-label="Delifesti inicio">
+          <img className="home-brand-logo" src="/delifesti-logo.jpg" alt="Deli Festi" />
+        </a>
 
         <div className="home-top-links">
-          <a href="#tipos-hoja">Tipos de hoja</a>
-          <a href="#como-funciona">Proceso de pedido y cotización</a>
-          <a href="#sobre-delifesti">Delifesti</a>
+          <a href="#materiales">Materiales</a>
+          <a href="#proceso">Proceso</a>
+          <Link href="/login">Iniciar pedido</Link>
         </div>
 
-        <div className="nav-actions">
-          <Link className="button button-primary" href="/login">
-            Iniciar sesión
-          </Link>
-        </div>
+        <Link className="button button-primary home-nav-button" href="/login">
+          Iniciar sesión
+        </Link>
       </nav>
 
-      <section className="hero">
-        <span className="eyebrow">Impresión transfer comestible especializada</span>
-        <h1>Delifesti: transfer comestible para repostería y eventos.</h1>
-        <p>
-          Delifesti es un local de productos de repostería y fiesta. Aquí puedes enviar tu pedido, subir referencias y
-          recibir seguimiento de tu cotización para impresión transfer en hoja de arroz o hoja de azúcar.
-        </p>
+      <section id="inicio" className="home-hero">
+        <div className="home-hero-copy">
+          <span className="eyebrow">Impresión transfer comestible personalizada</span>
+          <h1>Diseños comestibles para tus postres</h1>
+          <p>
+            En Delifesti preparamos impresiones en hoja de arroz y hoja de azúcar para pasteles, cupcakes,
+            galletas, logos y celebraciones. El precio incluye el diseño personalizado.
+          </p>
 
-        <div className="cta-row">
-          <Link className="button button-primary" href="/login">
-            Comenzar pedido
-          </Link>
+          <div className="cta-row">
+            <Link className="button button-primary" href="/login">
+              Comenzar pedido
+            </Link>
+            <a className="button button-secondary" href="#materiales">
+              Ver materiales
+            </a>
+          </div>
+        </div>
+
+        <div className="home-hero-visual" aria-label="Muestras reales de impresión comestible Delifesti">
+          <HeroCarousel images={heroImages} />
         </div>
       </section>
 
-      <section id="tipos-hoja" className="panel stack spacer-top">
-        <h2>Materiales para impresión transfer</h2>
-        <p className="home-copy">Compara cada opción por calidad de impresión, costo y tipo de aplicación en repostería.</p>
-
-        <div className="grid-3">
-          <article className="card">
-            <h3>Hoja de arroz - $50 MXN</h3>
-            <p className="home-card-text">Ideal para pedidos de volumen y diseños simples con presupuesto controlado.</p>
-          </article>
-          <article className="card">
-            <h3>Hoja de azúcar - $100 MXN</h3>
-            <p className="home-card-text">Mejor definición y color para fotos, logos finos y acabados premium.</p>
-          </article>
-          <article className="card">
-            <h3>¿Cuál elegir?</h3>
-            <p className="home-card-text">
-              Si priorizas costo, usa arroz. Si priorizas detalle visual y presentación final, usa azúcar.
-            </p>
-          </article>
+      <section id="proceso" className="home-steps" aria-labelledby="home-steps-title">
+        <h2 id="home-steps-title">Proceso de pedido y cotización</h2>
+        <div className="home-steps-grid">
+          {steps.map(([title, copy]) => (
+            <article className="home-step-card" key={title}>
+              <h3>{title}</h3>
+              <p>{copy}</p>
+            </article>
+          ))}
         </div>
       </section>
 
-      <section id="como-funciona" className="panel stack spacer-top">
-        <h2>Proceso de pedido y cotización</h2>
-        <div className="grid-3">
-          <article className="card">
-            <h3>1. Envías tu brief</h3>
-            <p className="home-card-text">Define tamaño, forma, tipo de hoja y sube archivos o referencias.</p>
-          </article>
-          <article className="card">
-            <h3>2. Revisamos tu pedido</h3>
-            <p className="home-card-text">Delifesti valida diseño y calcula cuántas hojas se necesitan realmente.</p>
-          </article>
-          <article className="card">
-            <h3>3. Recibes cotización</h3>
-            <p className="home-card-text">Ves total y avance en tu dashboard antes de finalizar producción.</p>
-          </article>
+      <section id="materiales" className="home-section">
+        <div className="home-section-heading">
+          <p>Materiales</p>
+          <h2>Elige la hoja ideal para tu diseño.</h2>
         </div>
-      </section>
 
-      <section id="sobre-delifesti" className="panel stack spacer-top">
-        <h2>Delifesti: tienda y servicio especializado</h2>
-        <p className="home-copy">
-          Delifesti combina venta de insumos de repostería y fiesta con servicio de impresión transfer comestible,
-          orientado a pastelerías, reposteros y clientes para eventos.
-        </p>
-        <p className="home-copy">
-          Puedes ver trabajos y novedades en
-          {" "}
-          <a className="home-inline-link" href={INSTAGRAM_URL} target="_blank" rel="noreferrer">
-            Instagram
-          </a>
-          .
-        </p>
+        <div className="home-product-grid">
+          {products.map((product) => (
+            <article className={`home-product-card ${product.accent}`} key={product.title}>
+              <div className="home-product-top">
+                <div>
+                  <h3>{product.title}</h3>
+                  <p>El precio incluye el diseño personalizado.</p>
+                </div>
+                <strong>{product.price}</strong>
+              </div>
+              <img className="home-product-photo" src={product.imageSrc} alt={product.title} />
+              <p className="home-product-description">{product.description}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
       <FloatingContact whatsappUrl={WHATSAPP_URL} instagramUrl={INSTAGRAM_URL} />
     </main>
   );
 }
-
-
